@@ -5,6 +5,7 @@ use crate::{
     util::get_section
 };
 
+//FUN_140eb1750
 const REGISTER_TASK_PATTERN: &str = concat!(
 // PUSH RDI
 "01000... 01010111",
@@ -33,8 +34,8 @@ static REGISTER_TASK: LazyLock<extern "C" fn(&CSEzTask, CSTaskGroupIndex)> = Laz
 
     let result = scanner::simple::scan(text_slice, &pattern).expect("Could not find CSTask::RegisterTask");
 
-    log::info!("CSTask::RegisterTask at {result:#?}");
-    unsafe { std::mem::transmute(result.location) }
+    log::info!("CSTask::RegisterTask at {text_range:#?}+{result:#?}");
+    unsafe { std::mem::transmute(text_range.start+result.location) }
 });
 
 #[repr(C)]
@@ -88,6 +89,8 @@ impl Drop for TaskProxy {
 }
 
 pub fn run_task(execute_fn: fn(), task_group: CSTaskGroupIndex) -> TaskProxy {
+    log::info!("run_task Address {:?}", execute_fn);
+
     let vftable = Box::pin(CSEzTaskVftable {
         get_runtime_class: || tracing::error!("TASK::get_runtime_class called"),
         execute: |_| tracing::error!("TASK::execute called"),
