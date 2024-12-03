@@ -34,3 +34,18 @@ pub fn get_section(
 
     Ok((section_range, section_slice))
 }
+
+pub fn get_game_base() -> Option<usize> {
+    const MODULE_NAMES: [&str; 2] = [
+        "eldenring.exe",
+        "start_protected_game.exe",
+    ];
+
+    for name in MODULE_NAMES.iter() {
+        let handle = runtime::get_module_handle(name);
+        if handle.is_ok() {
+            return handle.ok();
+        }
+    }
+    None
+}

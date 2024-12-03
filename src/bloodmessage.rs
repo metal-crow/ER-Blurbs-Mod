@@ -39,14 +39,14 @@ pub fn spawn_message(message: &str) {
         position_y: map_coordinates.1,
         position_z: map_coordinates.2,
         angle: -3.13653,
-        template_id: add_message(message),
+        template_id: add_message(message), //the only thing we need here is a unique id for lookup later in our BLOOD_MESSAGE_LOOKUP_HOOK
         unk1e: -1,
         unk1f: 66,
         unk20: 30001,
         unk24: 0,
         unk28: 0,
         unk2c: -1,
-        unk30: -1,
+        magic_value: u32::MAX, //this is a functional magic value, don't touch
         unk34: -1,
         unk38: -1,
         unk3c: 0,
@@ -80,6 +80,7 @@ use retour::static_detour;
 use tungstenite::protocol::Role;
 use widestring::{U16CStr, U16CString};
 
+use crate::util::get_game_base;
 use crate::{player::{MapId, WorldChrMan}, reflection::{get_instance, DLRFLocatable}, OutgoingMessage};
 
 #[repr(C)]
@@ -128,7 +129,7 @@ struct SpawnMessageParams {
     pub unk24: u32,
     pub unk28: u32,
     pub unk2c: i32,
-    pub unk30: i32,
+    pub magic_value: u32,
     pub unk34: i32,
     pub unk38: i32,
     pub unk3c: u32,
@@ -161,29 +162,15 @@ fn get_message(index: u16) -> Option<*const u16> {
 }
 
 static_detour! {
-    static BLOOD_MESSAGE_LOOKUP_HOOK: unsafe extern "system" fn(usize, u32) -> *const u16;
-}
-
-pub fn get_game_base() -> Option<usize> {
-    const MODULE_NAMES: [&str; 2] = [
-        "eldenring.exe",
-        "start_protected_game.exe",
-    ];
-
-    for name in MODULE_NAMES.iter() {
-        let handle = runtime::get_module_handle(name);
-        if handle.is_ok() {
-            return handle.ok();
-        }
-    }
-    None
+    static BLOOD_MESSAGE_LOOKUP_HOOK: unsafe extern "system" fn(u64, u32) -> *const u16;
 }
 
 pub fn init_hooks() {
     let base = get_game_base()
         .expect("Could not acquire game base");
 
-    let msg_hook_location = base + 0xd0f600;
+    //this hooks MsgRepositoryImpCategory::GetEntry, which is called by MsgRepositoryImp::LookupEntry
+    let msg_hook_location = base + 0x266dc20;
     unsafe {
         BLOOD_MESSAGE_LOOKUP_HOOK.initialize(
             std::mem::transmute(msg_hook_location),
@@ -196,7 +183,7 @@ pub fn init_hooks() {
 
 pub(crate) static SEND: RwLock<Option<Sender<String>>> = RwLock::new(None);
 
-fn blood_message_lookup(param_1: usize, template_id: u32) -> *const u16 {
+fn blood_message_lookup(param_1: u64, template_id: u32) -> *const u16 {
     if let Ok(message_index) = u16::try_from(template_id) {
         if let Some(message) = get_message(message_index) {
             // if let Ok(guard) = SEND.read() {
