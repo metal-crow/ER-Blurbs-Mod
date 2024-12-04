@@ -1,7 +1,6 @@
 use std::{pin::Pin, sync::LazyLock};
 use broadsword::scanner;
 use crate::{
-    reflection::{SectionLookupError, SingletonMapError},
     util::get_section
 };
 
@@ -77,7 +76,7 @@ struct FD4TaskData {
 }
 
 pub struct TaskProxy {
-    vftable: Pin<Box<CSEzTaskVftable>>,
+    _vftable: Pin<Box<CSEzTaskVftable>>,
     task: Pin<Box<CSEzTask>>,
 }
 
@@ -109,7 +108,7 @@ pub fn run_task(execute_fn: fn(), task_group: CSTaskGroupIndex) -> TaskProxy {
 
     REGISTER_TASK(&task, task_group);
 
-    TaskProxy { vftable, task }
+    TaskProxy { _vftable: vftable, task }
 }
 
 #[repr(u32)]

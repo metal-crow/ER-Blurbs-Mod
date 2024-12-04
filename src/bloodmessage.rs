@@ -1,4 +1,12 @@
-/// Spawns a message on the floor at the players location
+use std::{collections::HashMap, sync::{atomic::{AtomicU16, Ordering}, OnceLock, RwLock}};
+use std::sync::mpsc::Sender;
+use retour::static_detour;
+use widestring::{U16CStr, U16CString};
+
+use crate::util::get_game_base;
+use crate::{player::{MapId, WorldChrMan}, reflection::{get_instance, DLRFLocatable}};
+
+// Spawns a message on the floor at the players location
 pub fn spawn_message(message: &str) {
     log::info!("Spawning message {message:?}");
 
@@ -71,17 +79,6 @@ pub fn spawn_message(message: &str) {
     log::info!("Spawned message at {map_id:?} - {map_coordinates:?} with text \"{message}\"");
 }
 
-use std::{collections::HashMap, sync::{atomic::{AtomicU16, Ordering}, OnceLock, RwLock}};
-use std::cell::Cell;
-use std::sync::{Arc, LazyLock, LockResult, Mutex};
-use std::sync::mpsc::Sender;
-use broadsword::runtime;
-use retour::static_detour;
-use tungstenite::protocol::Role;
-use widestring::{U16CStr, U16CString};
-
-use crate::util::get_game_base;
-use crate::{player::{MapId, WorldChrMan}, reflection::{get_instance, DLRFLocatable}, OutgoingMessage};
 
 #[repr(C)]
 struct CSNetMan<'a> {
@@ -186,11 +183,11 @@ pub(crate) static SEND: RwLock<Option<Sender<String>>> = RwLock::new(None);
 fn blood_message_lookup(param_1: u64, template_id: u32) -> *const u16 {
     if let Ok(message_index) = u16::try_from(template_id) {
         if let Some(message) = get_message(message_index) {
-            // if let Ok(guard) = SEND.read() {
-            //     if let Some(send) = guard.as_ref() {
-            //         send.send(unsafe { U16CStr::from_ptr_str(message) }.to_string().unwrap()).expect("Send failed");
-            //     }
-            // }
+            if let Ok(guard) = SEND.read() {
+                if let Some(send) = guard.as_ref() {
+                    send.send(unsafe { U16CStr::from_ptr_str(message) }.to_string().unwrap()).expect("Send failed");
+                }
+            }
             return message;
         }
     }
