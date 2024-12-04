@@ -1,18 +1,26 @@
-use std::{collections::HashMap, sync::{atomic::{AtomicU16, Ordering}, OnceLock, RwLock}};
-use std::sync::mpsc::Sender;
 use retour::static_detour;
+use std::sync::mpsc::Sender;
+use std::{
+    collections::HashMap,
+    sync::{
+        atomic::{AtomicU16, Ordering},
+        OnceLock, RwLock,
+    },
+};
 use widestring::{U16CStr, U16CString};
 
 use crate::util::get_game_base;
-use crate::{player::{MapId, WorldChrMan}, reflection::{get_instance, DLRFLocatable}};
+use crate::{
+    player::{MapId, WorldChrMan},
+    reflection::{get_instance, DLRFLocatable},
+};
 
 // Spawns a message on the floor at the players location
 pub fn spawn_message(message: &str) {
     log::info!("Spawning message {message:?}");
 
     let netman = {
-        let instance = get_instance::<CSNetMan>()
-            .expect("Could not find CSNetMan static");
+        let instance = get_instance::<CSNetMan>().expect("Could not find CSNetMan static");
 
         if instance.is_none() {
             log::info!("CSNetMan does not have an instance");
@@ -23,8 +31,7 @@ pub fn spawn_message(message: &str) {
     };
 
     let world_chr_man = {
-        let instance = get_instance::<WorldChrMan>()
-            .expect("Could not find WorldChrMan static");
+        let instance = get_instance::<WorldChrMan>().expect("Could not find WorldChrMan static");
 
         if instance.is_none() {
             log::info!("WorldChrMan does not have an instance");
@@ -35,10 +42,13 @@ pub fn spawn_message(message: &str) {
     };
 
     let map_id = world_chr_man.main_player.map_id_1;
-    let map_coordinates = &world_chr_man.main_player.module_container.physics.unk70_position;
+    let map_coordinates = &world_chr_man
+        .main_player
+        .module_container
+        .physics
+        .unk70_position;
 
-    let base = get_game_base()
-        .expect("Could not acquire game base");
+    let base = get_game_base().expect("Could not acquire game base");
 
     let params = SpawnMessageParams {
         blood_message_db_item: 0x0,
@@ -65,7 +75,10 @@ pub fn spawn_message(message: &str) {
     };
 
     let spawn_fn = unsafe {
-        std::mem::transmute::<usize, extern "C" fn(&BloodMessageInsMan, &SpawnMessageParams, u32, &u32, &u64)>(base + 0x1b9720)
+        std::mem::transmute::<
+            usize,
+            extern "C" fn(&BloodMessageInsMan, &SpawnMessageParams, u32, &u32, &u64),
+        >(base + 0x1b9720)
     };
 
     spawn_fn(
@@ -78,7 +91,6 @@ pub fn spawn_message(message: &str) {
 
     log::info!("Spawned message at {map_id:?} - {map_coordinates:?} with text \"{message}\"");
 }
-
 
 #[repr(C)]
 struct CSNetMan<'a> {
@@ -142,7 +154,8 @@ static MESSAGE_TABLE: OnceLock<RwLock<HashMap<u16, U16CString>>> = OnceLock::new
 fn add_message(message: &str) -> u16 {
     let index = MESSAGE_COUNTER.fetch_add(1, Ordering::Relaxed);
 
-    MESSAGE_TABLE.get_or_init(Default::default)
+    MESSAGE_TABLE
+        .get_or_init(Default::default)
         .write()
         .expect("Could not acquire message table write lock")
         .insert(index, U16CString::from_str(message).unwrap());
@@ -151,7 +164,8 @@ fn add_message(message: &str) -> u16 {
 }
 
 fn get_message(index: u16) -> Option<*const u16> {
-    MESSAGE_TABLE.get_or_init(Default::default)
+    MESSAGE_TABLE
+        .get_or_init(Default::default)
         .read()
         .expect("Could not acquire message table read lock")
         .get(&index)
@@ -163,18 +177,18 @@ static_detour! {
 }
 
 pub fn init_hooks() {
-    let base = get_game_base()
-        .expect("Could not acquire game base");
+    let base = get_game_base().expect("Could not acquire game base");
 
     //this hooks MsgRepositoryImpCategory::GetEntry, which is called by MsgRepositoryImp::LookupEntry
     let msg_hook_location = base + 0x266dc20;
     unsafe {
-        BLOOD_MESSAGE_LOOKUP_HOOK.initialize(
-            std::mem::transmute(msg_hook_location),
-            blood_message_lookup,
-        ).expect("Could not initialize blood message hook");
+        BLOOD_MESSAGE_LOOKUP_HOOK
+            .initialize(std::mem::transmute(msg_hook_location), blood_message_lookup)
+            .expect("Could not initialize blood message hook");
 
-        BLOOD_MESSAGE_LOOKUP_HOOK.enable().expect("Could not enable blood message hook");
+        BLOOD_MESSAGE_LOOKUP_HOOK
+            .enable()
+            .expect("Could not enable blood message hook");
     }
 }
 
@@ -185,15 +199,17 @@ fn blood_message_lookup(param_1: u64, template_id: u32) -> *const u16 {
         if let Some(message) = get_message(message_index) {
             if let Ok(guard) = SEND.read() {
                 if let Some(send) = guard.as_ref() {
-                    send.send(unsafe { U16CStr::from_ptr_str(message) }.to_string().unwrap()).expect("Send failed");
+                    send.send(
+                        unsafe { U16CStr::from_ptr_str(message) }
+                            .to_string()
+                            .unwrap(),
+                    )
+                    .expect("Send failed");
                 }
             }
             return message;
         }
     }
 
-    unsafe {
-        BLOOD_MESSAGE_LOOKUP_HOOK.call(param_1, template_id)
-    }
+    unsafe { BLOOD_MESSAGE_LOOKUP_HOOK.call(param_1, template_id) }
 }
-

@@ -1,26 +1,20 @@
-use std::{ops, slice};
-use broadsword::runtime;
 use crate::reflection::SectionLookupError;
+use broadsword::runtime;
+use std::{ops, slice};
 /// Attempts to figure out what people called the exe
 fn get_game_module() -> Option<&'static str> {
-    const MODULE_NAMES: [&str; 2] = [
-        "eldenring.exe",
-        "start_protected_game.exe",
-    ];
+    const MODULE_NAMES: [&str; 2] = ["eldenring.exe", "start_protected_game.exe"];
 
     for name in MODULE_NAMES.iter() {
         if runtime::get_module_handle(name).is_ok() {
-            return Some(name)
+            return Some(name);
         }
     }
     None
 }
 
-pub fn get_section(
-    section: &str,
-) -> Result<(ops::Range<usize>, &[u8]), SectionLookupError> {
-    let module = get_game_module()
-        .ok_or(SectionLookupError::NoGameBase)?;
+pub fn get_section(section: &str) -> Result<(ops::Range<usize>, &[u8]), SectionLookupError> {
+    let module = get_game_module().ok_or(SectionLookupError::NoGameBase)?;
 
     let section_range = runtime::get_module_section_range(module, section)
         .map_err(|_| SectionLookupError::SectionNotFound)?;
@@ -28,7 +22,7 @@ pub fn get_section(
     let section_slice = unsafe {
         slice::from_raw_parts(
             section_range.start as *const u8,
-            section_range.end - section_range.start
+            section_range.end - section_range.start,
         )
     };
 
@@ -36,10 +30,7 @@ pub fn get_section(
 }
 
 pub fn get_game_base() -> Option<usize> {
-    const MODULE_NAMES: [&str; 2] = [
-        "eldenring.exe",
-        "start_protected_game.exe",
-    ];
+    const MODULE_NAMES: [&str; 2] = ["eldenring.exe", "start_protected_game.exe"];
 
     for name in MODULE_NAMES.iter() {
         let handle = runtime::get_module_handle(name);

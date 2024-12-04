@@ -72,7 +72,7 @@ pub struct ChrIns<'a> {
     pub character_id: u32,
     pub unk184: u32,
     pub module_container: &'a mut ChrInsModuleContainer<'a>,
-    pub rest: [u8; 0x3D8], 
+    pub rest: [u8; 0x3D8],
 }
 
 #[repr(C)]
@@ -184,7 +184,7 @@ impl DLRFLocatable for WorldChrMan<'_> {
 
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub struct GameDataMan{
+pub struct GameDataMan {
     unk130: [u8; 0x120],
     pub clear_count: u32,
     // the rest....

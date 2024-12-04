@@ -1,10 +1,6 @@
-use std::{
-    sync,
-    mem,
-    collections
-};
-use broadsword::scanner;
 use crate::util::get_section;
+use broadsword::scanner;
+use std::{collections, mem, sync};
 
 pub type SingletonMap = collections::HashMap<String, usize>;
 static SINGLETON_MAP: sync::OnceLock<SingletonMap> = sync::OnceLock::new();
@@ -29,23 +25,22 @@ pub trait DLRFLocatable {
 /// Looks up instances of singleton'd classes by their name.
 /// It builds a singleton map in the by matching an instruction pattern for
 /// some exception creation.
-/// Some singletons aren't necessarily always alive. Hence the 
-/// Result<Option<T>, E>. An example of such is WorldChrMan of which an 
+/// Some singletons aren't necessarily always alive. Hence the
+/// Result<Option<T>, E>. An example of such is WorldChrMan of which an
 /// instance only exists if you're actually in the game world.
 pub fn get_instance<T: DLRFLocatable>() -> Result<Option<&'static mut T>, LookupError> {
-    let table = SINGLETON_MAP.get_or_init(
-        || build_singleton_table()
+    let table = SINGLETON_MAP.get_or_init(|| {
+        build_singleton_table()
             .map_err(LookupError::SingletonMapCreation)
             .expect("Could not create singleton map")
-    );
+    });
 
-    let ptr = table.get(T::DLRF_NAME)
+    let ptr = table
+        .get(T::DLRF_NAME)
         .map(usize::to_owned)
         .ok_or(LookupError::NotFound)?;
 
-    unsafe {
-        Ok((*(ptr as *const *mut T)).as_mut())
-    }
+    unsafe { Ok((*(ptr as *const *mut T)).as_mut()) }
 }
 
 const NULL_CHECK_PATTERN: &str = concat!(
@@ -62,37 +57,31 @@ const NULL_CHECK_PATTERN: &str = concat!(
 );
 
 /// Builds a table of all the singletons. It does so by looking for null checks
-/// in the game by using an instance pattern. It then cycles over all 
-/// candidates and vets the involved pointers. We expect a pointer to the 
-/// instance's static, a pointer to the reflection metadata and a pointer to 
-/// the get_singleton_name fn. Once all checks out we call get_singleton_name 
+/// in the game by using an instance pattern. It then cycles over all
+/// candidates and vets the involved pointers. We expect a pointer to the
+/// instance's static, a pointer to the reflection metadata and a pointer to
+/// the get_singleton_name fn. Once all checks out we call get_singleton_name
 /// with the metadata to obtain the instance's type name.
 fn build_singleton_table() -> Result<SingletonMap, SingletonMapError> {
-    let (text_range, text_slice) = get_section(".text")
-        .map_err(|e| SingletonMapError::Section(".text", e))?;
+    let (text_range, text_slice) =
+        get_section(".text").map_err(|e| SingletonMapError::Section(".text", e))?;
 
-    let (data_range, _) = get_section(".data")
-        .map_err(|e| SingletonMapError::Section(".data", e))?;
+    let (data_range, _) =
+        get_section(".data").map_err(|e| SingletonMapError::Section(".data", e))?;
 
     let pattern = scanner::Pattern::from_bit_pattern(NULL_CHECK_PATTERN)
         .map_err(SingletonMapError::Pattern)?;
 
     let mut results: SingletonMap = Default::default();
     for candidate in scanner::simple::scan_all(text_slice, &pattern) {
-        let static_offset = u32::from_le_bytes(
-            candidate.captures[0].bytes.as_slice()
-                .try_into().unwrap()
-        );
+        let static_offset =
+            u32::from_le_bytes(candidate.captures[0].bytes.as_slice().try_into().unwrap());
 
-        let metadata_offset = u32::from_le_bytes(
-            candidate.captures[1].bytes.as_slice()
-                .try_into().unwrap()
-        );
+        let metadata_offset =
+            u32::from_le_bytes(candidate.captures[1].bytes.as_slice().try_into().unwrap());
 
-        let fn_offset = u32::from_le_bytes(
-            candidate.captures[2].bytes.as_slice()
-                .try_into().unwrap()
-        );
+        let fn_offset =
+            u32::from_le_bytes(candidate.captures[2].bytes.as_slice().try_into().unwrap());
 
         let candidate_base = text_range.start + candidate.location;
 
@@ -114,15 +103,13 @@ fn build_singleton_table() -> Result<SingletonMap, SingletonMapError> {
             continue;
         }
 
-        let get_singleton_name: extern "C" fn(usize) -> *const i8 = unsafe {
-            mem::transmute(fn_address)
-        };
+        let get_singleton_name: extern "C" fn(usize) -> *const i8 =
+            unsafe { mem::transmute(fn_address) };
 
-        let cstr = unsafe {
-            std::ffi::CStr::from_ptr(get_singleton_name(metadata_addres))
-        };
+        let cstr = unsafe { std::ffi::CStr::from_ptr(get_singleton_name(metadata_addres)) };
 
-        let name = cstr.to_str()
+        let name = cstr
+            .to_str()
             .map_err(|_| SingletonMapError::MalformedName)?
             .to_string();
 

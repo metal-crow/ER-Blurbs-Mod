@@ -1,17 +1,11 @@
 use crate::{
-    reflection::{
-        get_instance,
-        self
-    },
     player::{GameDataMan, WorldChrMan},
+    reflection::{self, get_instance},
     task::CSTaskGroupIndex,
-    util::get_section
+    util::get_section,
 };
 use broadsword::scanner;
-use std::{
-    slice::SliceIndex,
-    sync::LazyLock
-};
+use std::{slice::SliceIndex, sync::LazyLock};
 
 pub fn increase_difficulty() {
     let game_data_man = {

@@ -1,40 +1,38 @@
-use std::{pin::Pin, sync::LazyLock};
+use crate::util::get_section;
 use broadsword::scanner;
-use crate::{
-    util::get_section
-};
+use std::{pin::Pin, sync::LazyLock};
 
 //FUN_140eb1750
 const REGISTER_TASK_PATTERN: &str = concat!(
-// PUSH RDI
-"01000... 01010111",
-// SUB RSP, 0x30
-"01001... 10000011 11101100 00110000",
-// MOV [RSP+0x20], -0x2
-"01001... 11000111 01000100 ..100100 00100000 11111110 11111111 11111111 11111111",
-// MOV [RSP+0x40], RBX
-"01001... 10001001 01011100 ..100100 01000000",
-// MOV EBX, EDX
-"10001011 11011010",
-// MOV RDI, RCX
-"01001... 10001011 11111001",
-// CMP EDX,???
-"10000001 11111010 ........ ........ ........ ........",
-// JA ???
-"00001111 10000111 ........ ........ ........ ........",
+    // PUSH RDI
+    "01000... 01010111",
+    // SUB RSP, 0x30
+    "01001... 10000011 11101100 00110000",
+    // MOV [RSP+0x20], -0x2
+    "01001... 11000111 01000100 ..100100 00100000 11111110 11111111 11111111 11111111",
+    // MOV [RSP+0x40], RBX
+    "01001... 10001001 01011100 ..100100 01000000",
+    // MOV EBX, EDX
+    "10001011 11011010",
+    // MOV RDI, RCX
+    "01001... 10001011 11111001",
+    // CMP EDX,???
+    "10000001 11111010 ........ ........ ........ ........",
+    // JA ???
+    "00001111 10000111 ........ ........ ........ ........",
 );
 
 static REGISTER_TASK: LazyLock<extern "C" fn(&CSEzTask, CSTaskGroupIndex)> = LazyLock::new(|| {
-    let (text_range, text_slice) = get_section(".text")
-        .expect( "Could not get game text section.");
+    let (text_range, text_slice) = get_section(".text").expect("Could not get game text section.");
 
-    let pattern = scanner::Pattern::from_bit_pattern(REGISTER_TASK_PATTERN)
-        .expect("Could not parse pattern");
+    let pattern =
+        scanner::Pattern::from_bit_pattern(REGISTER_TASK_PATTERN).expect("Could not parse pattern");
 
-    let result = scanner::simple::scan(text_slice, &pattern).expect("Could not find CSTask::RegisterTask");
+    let result =
+        scanner::simple::scan(text_slice, &pattern).expect("Could not find CSTask::RegisterTask");
 
     log::info!("CSTask::RegisterTask at {text_range:#?}+{result:#?}");
-    unsafe { std::mem::transmute(text_range.start+result.location) }
+    unsafe { std::mem::transmute(text_range.start + result.location) }
 });
 
 #[repr(C)]
@@ -108,7 +106,10 @@ pub fn run_task(execute_fn: fn(), task_group: CSTaskGroupIndex) -> TaskProxy {
 
     REGISTER_TASK(&task, task_group);
 
-    TaskProxy { _vftable: vftable, task }
+    TaskProxy {
+        _vftable: vftable,
+        task,
+    }
 }
 
 #[repr(u32)]

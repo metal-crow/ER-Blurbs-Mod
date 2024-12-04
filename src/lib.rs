@@ -1,5 +1,6 @@
 use crate::task::CSTaskGroupIndex;
 use broadsword::dll;
+use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use std::{
     net::{TcpListener, TcpStream},
@@ -10,7 +11,6 @@ use std::{
     thread::spawn,
 };
 use tungstenite::{accept, Message};
-use lazy_static::lazy_static;
 
 const WS_PORT: &str = "10001";
 
@@ -30,7 +30,6 @@ pub fn entry(_hmodule: usize) -> bool {
     broadsword::logging::init("bloodmessage-mod.log");
 
     bloodmessage::init_hooks();
-
 
     spawn(|| {
         let server =
