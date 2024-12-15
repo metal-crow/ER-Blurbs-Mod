@@ -1,5 +1,7 @@
+use lazy_static::lazy_static;
 use retour::static_detour;
 use std::sync::mpsc::Sender;
+use std::sync::Mutex;
 use std::{
     collections::HashMap,
     sync::{
@@ -192,20 +194,22 @@ pub fn init_hooks() {
     }
 }
 
-pub(crate) static SEND: RwLock<Option<Sender<String>>> = RwLock::new(None);
+lazy_static! {
+    pub(crate) static ref MSGINFO_SEND: Mutex<Option<Sender<String>>> = Mutex::new(None);
+}
 
 fn blood_message_lookup(param_1: u64, template_id: u32) -> *const u16 {
     if let Ok(message_index) = u16::try_from(template_id) {
         if let Some(message) = get_message(message_index) {
-            if let Ok(guard) = SEND.read() {
-                if let Some(send) = guard.as_ref() {
-                    send.send(
+            //i can't just call SEND here, this is hit every frame
+            if let Some(sender) = MSGINFO_SEND.lock().unwrap().as_ref() {
+                sender
+                    .send(
                         unsafe { U16CStr::from_ptr_str(message) }
                             .to_string()
                             .unwrap(),
                     )
                     .expect("Send failed");
-                }
             }
             return message;
         }

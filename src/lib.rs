@@ -88,9 +88,7 @@ pub fn handle_client(stream: TcpStream) {
 
     // Setup a channel for notification if a player reads a message
     let (msginfo_send, msginfo_recv) = channel();
-    if let Ok(mut guard) = bloodmessage::SEND.write() {
-        guard.replace(msginfo_send);
-    }
+    *bloodmessage::MSGINFO_SEND.lock().unwrap() = Some(msginfo_send);
 
     // Start the task. This serves this client until connection is closed
     let task = task::run_task(
@@ -98,10 +96,18 @@ pub fn handle_client(stream: TcpStream) {
         CSTaskGroupIndex::WorldChrMan_PostPhysics,
     );
 
-    let mut websocket = accept(stream).expect("Could not accept stream");
+    stream
+        .set_nonblocking(true)
+        .expect("set_nonblocking call failed");
+    let mut peek_buf = [0; 1];
+    let mut websocket = accept(stream.try_clone().expect("tcpstream clone failed..."))
+        .expect("Could not accept stream");
+
     loop {
         //listen for data from the game for messages being read, and pass it back to the remote client
-        while let Ok(msg) = msginfo_recv.try_recv() {
+        if let Ok(msg) = msginfo_recv.try_recv() {
+            log::info!("Sending player read message {msg:?}");
+
             websocket
                 .send(Message::Text(
                     serde_json::to_string(&OutgoingMessage::BloodMessageEvent { text: msg })
@@ -111,33 +117,35 @@ pub fn handle_client(stream: TcpStream) {
         }
 
         //listen for data from the remote client, and pass it to the IncomingMessage handler
-        match websocket.read() {
-            Ok(msg) => {
-                log::info!("Received websocket message. {msg:?}");
+        //this is blocking, so we need to peek before we read
+        match stream.peek(&mut peek_buf) {
+            Ok(1) => match websocket.read() {
+                Ok(msg) => {
+                    log::info!("Received websocket message. {msg:?}");
 
-                if let Message::Text(content) = msg {
-                    log::info!("Received text: {content}");
+                    if let Message::Text(content) = msg {
+                        log::info!("Received text: {content}");
 
-                    let deserialized: IncomingMessage =
-                        serde_json::from_str(&content).expect("Could not parse incoming message");
+                        let deserialized: IncomingMessage = serde_json::from_str(&content)
+                            .expect("Could not parse incoming message");
 
-                    log::info!("Deserialized incoming message {deserialized:?}");
-                    task_send.send(deserialized).expect("Could not send");
+                        log::info!("Deserialized incoming message {deserialized:?}");
+                        task_send.send(deserialized).expect("Could not send");
+                    }
                 }
-            }
-            Err(e) => match e {
-                tungstenite::Error::AlreadyClosed => {
-                    log::info!("Client dropped connection");
-                    break;
-                }
-                _ => log::error!("Error while handling message: {e:?}"),
+                Err(e) => match e {
+                    tungstenite::Error::AlreadyClosed => {
+                        log::info!("Client dropped connection");
+                        break;
+                    }
+                    _ => log::error!("Error while handling message: {e:?}"),
+                },
             },
+            _ => {}
         }
     }
 
-    if let Ok(mut guard) = bloodmessage::SEND.write() {
-        guard.take();
-    }
+    *bloodmessage::MSGINFO_SEND.lock().unwrap() = None;
     *TASK_ENQUEUE.lock().unwrap() = None;
     drop(task);
 }
