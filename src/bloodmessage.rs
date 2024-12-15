@@ -1,7 +1,9 @@
 use lazy_static::lazy_static;
 use retour::static_detour;
+use std::sync::atomic::AtomicU64;
 use std::sync::mpsc::Sender;
 use std::sync::Mutex;
+use std::time::{SystemTime, UNIX_EPOCH};
 use std::{
     collections::HashMap,
     sync::{
@@ -196,21 +198,30 @@ pub fn init_hooks() {
 
 lazy_static! {
     pub(crate) static ref MSGINFO_SEND: Mutex<Option<Sender<String>>> = Mutex::new(None);
+    static ref msg_last_read: AtomicU64 = AtomicU64::new(0);
 }
 
 fn blood_message_lookup(param_1: u64, template_id: u32) -> *const u16 {
     if let Ok(message_index) = u16::try_from(template_id) {
         if let Some(message) = get_message(message_index) {
-            //i can't just call SEND here, this is hit every frame
-            if let Some(sender) = MSGINFO_SEND.lock().unwrap().as_ref() {
-                sender
-                    .send(
-                        unsafe { U16CStr::from_ptr_str(message) }
-                            .to_string()
-                            .unwrap(),
-                    )
-                    .expect("Send failed");
+            //i can't just call SEND here, this is hit every frame. Check the last time we read it
+            let now = SystemTime::now();
+            let cur_read_time = now
+                .duration_since(UNIX_EPOCH)
+                .expect("Time went backwards")
+                .as_secs();
+            if cur_read_time - msg_last_read.load(Ordering::Relaxed) > 2 {
+                if let Some(sender) = MSGINFO_SEND.lock().unwrap().as_ref() {
+                    sender
+                        .send(
+                            unsafe { U16CStr::from_ptr_str(message) }
+                                .to_string()
+                                .unwrap(),
+                        )
+                        .expect("Send failed");
+                }
             }
+            msg_last_read.store(cur_read_time, Ordering::Relaxed);
             return message;
         }
     }
