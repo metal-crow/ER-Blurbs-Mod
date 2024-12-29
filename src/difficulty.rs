@@ -52,10 +52,12 @@ static GAME_DATA_MAN: LazyLock<usize> = LazyLock::new(|| {
         .expect("Could not parse pattern");
 
     let result = scanner::simple::scan(text_slice, &pattern).expect("Could not find GameDataMan");
-    let offset = &result.captures[0].bytes;
-    log::info!("GameDataMan at {result:#?}");
 
     let mut buff = [0; 4];
-    buff.copy_from_slice(&offset[..4]);
-    unsafe { result.location + INSTRUCTION_SIZE + u32::from_le_bytes(buff) as usize }
+    buff.copy_from_slice(&text_slice[result.location + 3..result.location + 3 + 4]);
+    let gameman = unsafe {
+        text_range.start + result.location + INSTRUCTION_SIZE + u32::from_le_bytes(buff) as usize
+    };
+    log::info!("GameDataMan ptr {result:?} + {text_range:?} = {gameman:?}");
+    return gameman;
 });
