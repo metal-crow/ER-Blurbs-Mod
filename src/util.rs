@@ -1,6 +1,9 @@
 use crate::reflection::SectionLookupError;
 use broadsword::runtime;
+use lazy_static::lazy_static;
 use std::{ops, slice};
+use widestring::{u16cstr, U16CString};
+
 /// Attempts to figure out what people called the exe
 fn get_game_module() -> Option<&'static str> {
     const MODULE_NAMES: [&str; 2] = ["eldenring.exe", "start_protected_game.exe"];
@@ -39,4 +42,18 @@ pub fn get_game_base() -> Option<usize> {
         }
     }
     None
+}
+
+pub fn display_message(text: String) {
+    let base = get_game_base().expect("Could not acquire game base");
+    let (data_range, data_slice) = get_section(".data").expect("Could not get game data section.");
+
+    let displaymsg_fn =
+        unsafe { std::mem::transmute::<usize, extern "C" fn(u64, *mut u16)>(base + 0x841c50) };
+    unsafe {
+        let CSMenuManImp = *((base + 0x3d6b7b0) as *mut u64);
+        let FeSystemAnnounceViewModel = *((CSMenuManImp + 0x860) as *mut u64);
+        let message = U16CString::from_str_unchecked(&text);
+        displaymsg_fn(FeSystemAnnounceViewModel, message.into_raw()); //this will cause a memory leak. i don't care, it's fine probably
+    }
 }

@@ -2,7 +2,7 @@ use crate::{
     player::{GameDataMan, WorldChrMan},
     reflection::{self, get_instance},
     task::CSTaskGroupIndex,
-    util::get_section,
+    util::{display_message, get_section},
 };
 use broadsword::scanner;
 use std::{slice::SliceIndex, sync::LazyLock};
@@ -18,6 +18,8 @@ pub fn increase_difficulty() {
         game_data_man.unwrap()
     };
     game_data_man.clear_count += 1;
+
+    display_message(format!("DIFFICULTY UP: {}", game_data_man.clear_count));
 }
 
 pub fn decrease_difficulty() {
@@ -32,6 +34,8 @@ pub fn decrease_difficulty() {
     };
 
     game_data_man.clear_count -= 1;
+
+    display_message(format!("DIFFICULTY DOWN: {}", game_data_man.clear_count));
 }
 
 pub fn get_game_data_man<'a>() -> Option<&'a mut GameDataMan> {
