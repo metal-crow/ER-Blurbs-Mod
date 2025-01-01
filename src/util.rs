@@ -1,8 +1,7 @@
 use crate::reflection::SectionLookupError;
 use broadsword::runtime;
-use lazy_static::lazy_static;
 use std::{ops, slice};
-use widestring::{u16cstr, U16CString};
+use widestring::U16CString;
 
 /// Attempts to figure out what people called the exe
 fn get_game_module() -> Option<&'static str> {
@@ -44,16 +43,57 @@ pub fn get_game_base() -> Option<usize> {
     None
 }
 
-pub fn display_message(text: String) {
+pub fn display_custom_text_message(text: String) {
     let base = get_game_base().expect("Could not acquire game base");
-    let (data_range, data_slice) = get_section(".data").expect("Could not get game data section.");
 
     let displaymsg_fn =
         unsafe { std::mem::transmute::<usize, extern "C" fn(u64, *mut u16)>(base + 0x841c50) };
     unsafe {
-        let CSMenuManImp = *((base + 0x3d6b7b0) as *mut u64);
-        let FeSystemAnnounceViewModel = *((CSMenuManImp + 0x860) as *mut u64);
+        let csmenu_man_imp = *((base + 0x3d6b7b0) as *mut u64);
+        let fe_system_announce_view_model = *((csmenu_man_imp + 0x860) as *mut u64);
         let message = U16CString::from_str_unchecked(&text);
-        displaymsg_fn(FeSystemAnnounceViewModel, message.into_raw()); //this will cause a memory leak. i don't care, it's fine probably
+        displaymsg_fn(fe_system_announce_view_model, message.into_raw()); //this will cause a memory leak. i don't care, it's fine probably
+    }
+}
+
+#[repr(u32)]
+#[allow(non_camel_case_types, dead_code)]
+pub enum FullscreenMsgIndex {
+    DemigodFelled = 1,
+    LegendFelled = 2,
+    GreatEnemyFelled = 3,
+    EnemyFelled = 4,
+    YouDied = 5,
+    HostVanquished = 7,
+    BloodFingerVanquished = 8,
+    DutyFullFilled = 9,
+    LostGraceDiscovered = 11,
+    Commence = 13,
+    Victory = 14,
+    Stalemate = 15,
+    Defeat = 16,
+    MapFound = 17,
+    GreatRuneRestored = 21,
+    GodSlain = 22,
+    DuelistVanquished = 23,
+    RecusantVanquished = 24,
+    InvaderVanquished = 25,
+    FurledFingerRankAdvanced = 30,
+    DuelistRankAdvanced = 32,
+    BloodyFingerRankAdvanced = 34,
+    RecusantRankAdvanced = 36,
+    HunterRankAdvanced = 38,
+    HeartStolen = 40,
+}
+
+// 50 = You Died + Fade Effect
+pub fn display_message(msg_id: FullscreenMsgIndex) {
+    let base = get_game_base().expect("Could not acquire game base");
+
+    let displaymsg_fn =
+        unsafe { std::mem::transmute::<usize, extern "C" fn(u64, u32)>(base + 0x766460) };
+    unsafe {
+        let csmenu_man_imp = *((base + 0x3d6b7b0) as *mut u64);
+        displaymsg_fn(csmenu_man_imp, msg_id as u32);
     }
 }
