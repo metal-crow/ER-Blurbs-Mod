@@ -17,8 +17,9 @@ pub fn increase_difficulty() {
 
         game_data_man.unwrap()
     };
-    game_data_man.clear_count += 1;
-
+    if (game_data_man.clear_count < 8) {
+        game_data_man.clear_count += 1;
+    }
     display_message(format!("DIFFICULTY UP: {}", game_data_man.clear_count));
 }
 
@@ -33,8 +34,9 @@ pub fn decrease_difficulty() {
         game_data_man.unwrap()
     };
 
-    game_data_man.clear_count -= 1;
-
+    if (game_data_man.clear_count > 1) {
+        game_data_man.clear_count -= 1;
+    }
     display_message(format!("DIFFICULTY DOWN: {}", game_data_man.clear_count));
 }
 
