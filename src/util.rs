@@ -86,7 +86,6 @@ pub enum FullscreenMsgIndex {
     HeartStolen = 40,
 }
 
-// 50 = You Died + Fade Effect
 pub fn display_message(msg_id: FullscreenMsgIndex) {
     let base = get_game_base().expect("Could not acquire game base");
 
