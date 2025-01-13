@@ -12,7 +12,6 @@ pub fn set_scaling() {
 
     //Apply the NG+ speffects to all active enemies
     //This is run as a task, so it will apply to any newly loaded enemies as well
-    let game_data_man = get_game_data_man().expect("Could not acquire game_data_man");
     let world_chr_man = get_world_chr_man().expect("Could not acquire world_chr_man");
 
     unsafe {
@@ -42,12 +41,11 @@ pub fn set_scaling() {
                 let npcparam_st = *((npcparam + 0) as *mut u64);
                 let gameclear_speffect = *((npcparam_st + 0x6c) as *mut u32);
 
-                //compute the added speffect for NG+X where X>1
-
-                //TODO do i have to clear speffects? reset them?
+                //i don't have to do any extar NG+X X>1 work, since the game seems to magically apply the extra scaling based on the game_data_man.clear_count
+                //don't have to clear the value either, since it seems the game also does that
 
                 //get the speffect for NG+ for the enemy, and apply it
-                //apply_speffect_fn(chrins_enemy, gameclear_speffect, 1);
+                apply_speffect_fn(chrins_enemy, gameclear_speffect, 1);
             }
         }
     }
