@@ -43,6 +43,7 @@ pub fn get_game_base() -> Option<usize> {
     None
 }
 
+#[allow(dead_code)]
 pub fn display_custom_text_message(text: String) {
     let base = get_game_base().expect("Could not acquire game base");
 
