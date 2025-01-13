@@ -91,8 +91,14 @@ pub fn handle_client(stream: TcpStream) {
     *bloodmessage::MSGINFO_SEND.lock().unwrap() = Some(msginfo_send);
 
     // Start the task. This serves this client until connection is closed
-    let task = task::run_task(
+    let task_msgs = task::run_task(
         handle_client_task, //this can't be a closure that takes local args, otherise it breaks
+        CSTaskGroupIndex::WorldChrMan_PostPhysics,
+    );
+
+    // Start the task to handle scaling the enemies
+    let task_scaling = task::run_task(
+        difficulty::set_scaling,
         CSTaskGroupIndex::WorldChrMan_PostPhysics,
     );
 
@@ -147,5 +153,6 @@ pub fn handle_client(stream: TcpStream) {
 
     *bloodmessage::MSGINFO_SEND.lock().unwrap() = None;
     *TASK_ENQUEUE.lock().unwrap() = None;
-    drop(task);
+    drop(task_scaling);
+    drop(task_msgs);
 }

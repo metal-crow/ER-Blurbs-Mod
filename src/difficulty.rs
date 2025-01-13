@@ -5,31 +5,19 @@ use crate::{
 use broadsword::scanner;
 use std::sync::LazyLock;
 
-#[allow(non_camel_case_types, dead_code)]
-struct MultiPlayerCorrectionParamData {
-    param_id: u32,
-    padding: u32,
-    param_data: u64,
-}
-
-fn set_scaling() {
+pub fn set_scaling() {
     let base = get_game_base().expect("Could not acquire game base");
-    let set_mpscaling_for_chr_fn =
-        unsafe { std::mem::transmute::<usize, extern "C" fn(u64, u64)>(base + 0x3fada0) };
+    let apply_speffect_fn =
+        unsafe { std::mem::transmute::<usize, extern "C" fn(u64, u32, u8)>(base + 0x3e8cf0) };
 
-    //set the new value for the mpScaling
-    //the code we inject into WHERE will pull this value for us whenever it is run by the game
-    //and the game reruns it automatically for newly loaded enemies
-    //So we just have to take care of the currently active enemies
-
-    let const_correction_param = MultiPlayerCorrectionParamData {
-        param_id: 0,
-        padding: 0,
-        param_data: 0,
-    };
-
+    //Apply the NG+ speffects to all active enemies
+    //This is run as a task, so it will apply to any newly loaded enemies as well
+    let game_data_man = get_game_data_man().expect("Could not acquire game_data_man");
     let world_chr_man = get_world_chr_man().expect("Could not acquire world_chr_man");
+
     unsafe {
+        //get list of all enemies around the current player
+        //This code is taken from inuNorii's Kill All Mobs script in TGA table
         let mut chr_set = *((world_chr_man + 0x1CC60) as *mut u64); //legacy dungeon
         let open_field_chr_set = *((world_chr_man + 0x1E270) as *mut u64); //open world
 
@@ -49,7 +37,17 @@ fn set_scaling() {
         for i in 1..chr_count {
             let chrins_enemy = *((chr_set + (i * 0x10) as u64) as *mut u64);
             if chrins_enemy != 0 {
-                set_mpscaling_for_chr_fn(chrins_enemy, &const_correction_param as *const _ as u64);
+                //for this enemy, get the speffect for NG+1 scaling speffect
+                let npcparam = *((chrins_enemy + 0x5f0) as *mut u64);
+                let npcparam_st = *((npcparam + 0) as *mut u64);
+                let gameclear_speffect = *((npcparam_st + 0x6c) as *mut u32);
+
+                //compute the added speffect for NG+X where X>1
+
+                //TODO do i have to clear speffects? reset them?
+
+                //get the speffect for NG+ for the enemy, and apply it
+                //apply_speffect_fn(chrins_enemy, gameclear_speffect, 1);
             }
         }
     }
@@ -85,10 +83,9 @@ pub fn increase_difficulty() {
 
         game_data_man.unwrap()
     };
-    if game_data_man.clear_count < 8 {
+    if game_data_man.clear_count < 7 {
         game_data_man.clear_count += 1;
     }
-    set_scaling();
 
     display_message(ng_val_to_msg(game_data_man.clear_count, true));
 }
@@ -107,7 +104,6 @@ pub fn decrease_difficulty() {
     if game_data_man.clear_count > 0 {
         game_data_man.clear_count -= 1;
     }
-    set_scaling();
 
     display_message(ng_val_to_msg(game_data_man.clear_count, false));
 }
@@ -140,8 +136,8 @@ static GAME_DATA_MAN: LazyLock<usize> = LazyLock::new(|| {
 
 pub fn get_world_chr_man() -> Option<u64> {
     let wcm = &*WORLD_CHR_MAN;
-    let wcm_ptr_ptr = *wcm;
-    Some(wcm_ptr_ptr as u64)
+    let wcm_ptr_ptr = *wcm as *mut u64;
+    unsafe { Some(*wcm_ptr_ptr as u64) }
 }
 
 static WORLD_CHR_MAN: LazyLock<usize> = LazyLock::new(|| {
