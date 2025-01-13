@@ -55,6 +55,26 @@ fn set_scaling() {
     }
 }
 
+fn ng_val_to_msg(ng: u32, isup: bool) -> FullscreenMsgIndex {
+    match (ng, isup) {
+        (0, false) => FullscreenMsgIndex::Down0,
+        (1, false) => FullscreenMsgIndex::Down1,
+        (2, false) => FullscreenMsgIndex::Down2,
+        (3, false) => FullscreenMsgIndex::Down3,
+        (4, false) => FullscreenMsgIndex::Down4,
+        (5, false) => FullscreenMsgIndex::Down5,
+        (6, false) => FullscreenMsgIndex::Down6,
+        (1, true) => FullscreenMsgIndex::Up1,
+        (2, true) => FullscreenMsgIndex::Up2,
+        (3, true) => FullscreenMsgIndex::Up3,
+        (4, true) => FullscreenMsgIndex::Up4,
+        (5, true) => FullscreenMsgIndex::Up5,
+        (6, true) => FullscreenMsgIndex::Up6,
+        (7, true) => FullscreenMsgIndex::Up7,
+        (_, _) => FullscreenMsgIndex::YouDied,
+    }
+}
+
 pub fn increase_difficulty() {
     let game_data_man = {
         let game_data_man = get_game_data_man();
@@ -70,7 +90,7 @@ pub fn increase_difficulty() {
     }
     set_scaling();
 
-    display_message(FullscreenMsgIndex::RecusantRankAdvanced);
+    display_message(ng_val_to_msg(game_data_man.clear_count, true));
 }
 
 pub fn decrease_difficulty() {
@@ -89,7 +109,7 @@ pub fn decrease_difficulty() {
     }
     set_scaling();
 
-    display_message(FullscreenMsgIndex::HunterRankAdvanced);
+    display_message(ng_val_to_msg(game_data_man.clear_count, false));
 }
 
 pub fn get_game_data_man<'a>() -> Option<&'a mut GameDataMan> {
