@@ -12,13 +12,30 @@ pub fn set_scaling() {
 
     //Apply the NG+ speffects to all active enemies
     //This is run as a task, so it will apply to any newly loaded enemies as well
-    let world_chr_man = get_world_chr_man().expect("Could not acquire world_chr_man");
+    let world_chr_man = {
+        let world_chr_man = get_world_chr_man();
+        if world_chr_man.is_none() {
+            log::info!("world_chr_man does not have an instance");
+            return;
+        }
+
+        world_chr_man.unwrap()
+    };
+    if world_chr_man == 0 {
+        return;
+    }
 
     unsafe {
         //get list of all enemies around the current player
         //This code is taken from inuNorii's Kill All Mobs script in TGA table
         let mut chr_set = *((world_chr_man + 0x1CC60) as *mut u64); //legacy dungeon
+        if chr_set == 0 {
+            return;
+        }
         let open_field_chr_set = *((world_chr_man + 0x1E270) as *mut u64); //open world
+        if open_field_chr_set == 0 {
+            return;
+        }
 
         let mut use_legacy = false;
         let mut chr_count = *((open_field_chr_set + 0x20) as *mut u32);
@@ -32,14 +49,26 @@ pub fn set_scaling() {
         } else {
             chr_set = *((open_field_chr_set + 0x18) as *mut u64);
         }
+        if chr_set == 0 {
+            return;
+        }
 
         for i in 1..chr_count {
             let chrins_enemy = *((chr_set + (i * 0x10) as u64) as *mut u64);
             if chrins_enemy != 0 {
                 //for this enemy, get the speffect for NG+1 scaling speffect
                 let npcparam = *((chrins_enemy + 0x5f0) as *mut u64);
+                if npcparam == 0 {
+                    return;
+                }
                 let npcparam_st = *((npcparam + 0) as *mut u64);
+                if npcparam_st == 0 {
+                    return;
+                }
                 let gameclear_speffect = *((npcparam_st + 0x6c) as *mut u32);
+                if gameclear_speffect == 0 {
+                    return;
+                }
 
                 //i don't have to do any extar NG+X X>1 work, since the game seems to magically apply the extra scaling based on the game_data_man.clear_count
                 //don't have to clear the value either, since it seems the game also does that
