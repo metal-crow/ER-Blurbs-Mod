@@ -67,13 +67,28 @@ pub fn set_scaling() {
 
         for i in 1..chr_count {
             let chrins_enemy = *((chr_set + (i * 0x10) as u64) as *mut u64);
+            let chrins_enemy_vtable = *((chrins_enemy + 0) as *mut usize);
             if chrins_enemy != 0 {
                 //for this enemy, get the speffect for NG+1 scaling speffect
-                let npcparam = *((chrins_enemy + 0x5f0) as *mut u64);
-                if npcparam == 0 {
+                //need to check vtable to determine offset
+                let mut param = 0;
+                //enemy
+                if chrins_enemy_vtable == base + 0x2a44010 {
+                    param = *((chrins_enemy + 0x598) as *mut u64);
+                }
+                //player
+                else if chrins_enemy_vtable == base + 0x2a7cb40 {
+                    param = *((chrins_enemy + 0x5f0) as *mut u64);
+                }
+                //unknown
+                else {
                     return;
                 }
-                let npcparam_st = *((npcparam + 0) as *mut u64);
+                if param == 0 {
+                    return;
+                }
+
+                let npcparam_st = *((param + 0) as *mut u64);
                 if npcparam_st == 0 {
                     return;
                 }
