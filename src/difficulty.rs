@@ -7,6 +7,18 @@ use std::sync::LazyLock;
 
 pub fn set_scaling() {
     let base = get_game_base().expect("Could not acquire game base");
+    unsafe {
+        //check if we're loading
+        let loading_helper = *((base + 0x3d60ec8) as *mut u64);
+        if loading_helper == 0 {
+            return;
+        }
+        let loaded = *((loading_helper + 0xED) as *mut u8);
+        if loaded != 1 {
+            return;
+        }
+    }
+
     let apply_speffect_fn =
         unsafe { std::mem::transmute::<usize, extern "C" fn(u64, u32, u8)>(base + 0x3e8cf0) };
 
