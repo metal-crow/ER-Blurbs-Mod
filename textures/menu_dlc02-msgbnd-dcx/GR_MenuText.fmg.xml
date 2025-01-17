@@ -2893,7 +2893,7 @@ You can attempt another invasion of the same world by using a Phantom Finger ite
 <text id="331313">DIFFICULTY DOWN NG+6</text>
 <text id="331314">DIFFICULTY DOWN NG+5</text>
 <text id="331315">DIFFICULTY DOWN NG+4</text>
-<text id="331316">DIFFICULTY DOWN NG+3</text>
+<text id="331316">DEFEAT</text>
 <text id="331317">MAP FOUND</text>
 <text id="331318">REDEEMER DIED</text>
 <text id="331319">%null%</text>
@@ -2901,7 +2901,7 @@ You can attempt another invasion of the same world by using a Phantom Finger ite
 <text id="331321">GREAT RUNE RESTORED</text>
 <text id="331322">GOD SLAIN</text>
 <text id="331323">DUELIST VANQUISHED</text>
-<text id="331324">RECUSANT VANQUISHED</text>
+<text id="331324">DIFFICULTY DOWN NG+3</text>
 <text id="331325">INVADER VANQUISHED</text>
 <text id="331326">%null%</text>
 <text id="331327">%null%</text>
