@@ -85,10 +85,13 @@ pub fn delete_message(message: &str) {
         return;
     }
 
-    //free the BloodMessageIns object
+    //free and destrut the BloodMessageIns object
+    let destruct_fn =
+        unsafe { std::mem::transmute::<usize, extern "C" fn(u64, u32)>(base + 0x1b73f0) };
+    destruct_fn(removed_msg_entry, 0); //this cleans up the sfx but doesn't free the memory
     let dealloc_fn =
         unsafe { std::mem::transmute::<usize, extern "C" fn(u64, u64)>(base + 0xe1d990) };
-    dealloc_fn(0, removed_msg_entry);
+    dealloc_fn(0, removed_msg_entry); //this frees the memory
 
     //remove the message text entry
     remove_message(&message);
