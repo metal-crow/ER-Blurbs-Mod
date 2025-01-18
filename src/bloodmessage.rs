@@ -19,6 +19,81 @@ use crate::{
     reflection::{get_instance, DLRFLocatable},
 };
 
+// Despawn the message and remove the message text entry
+pub fn delete_message(message: &str) {
+    log::info!("Removing message {message:?}");
+
+    let base = get_game_base().expect("Could not acquire game base");
+    let netman = {
+        let instance = get_instance::<CSNetMan>().expect("Could not find CSNetMan static");
+
+        if instance.is_none() {
+            log::info!("CSNetMan does not have an instance");
+            return;
+        }
+
+        instance.unwrap()
+    };
+    let msg_id = match get_message_id(message) {
+        None => {
+            log::info!("Could not find message");
+            return;
+        }
+        Some(x) => x,
+    };
+
+    //remove the entry from the BloodMessageInsMan list
+    let mut removed_msg_entry: u64 = 0;
+
+    unsafe {
+        let mut msg_list_head = netman
+            .blood_message_db
+            .blood_message_ins_man_1
+            .blood_message_list_head;
+        let mut msg_list_head_read = netman
+            .blood_message_db
+            .blood_message_ins_man_1
+            .blood_message_list_head as *const BloodMessageIns;
+        //if it's the head entry
+        if (*msg_list_head_read).template == msg_id {
+            removed_msg_entry = netman
+                .blood_message_db
+                .blood_message_ins_man_1
+                .blood_message_list_head;
+            netman
+                .blood_message_db
+                .blood_message_ins_man_1
+                .blood_message_list_head = (*msg_list_head_read).next;
+        } else {
+            loop {
+                if (*((*msg_list_head_read).next as *const BloodMessageIns)).template == msg_id {
+                    removed_msg_entry = (*msg_list_head_read).next;
+                    (*(msg_list_head as *mut BloodMessageIns)).next =
+                        (*((*(msg_list_head as *const BloodMessageIns)).next
+                            as *const BloodMessageIns))
+                            .next;
+                    break;
+                }
+                msg_list_head = (*msg_list_head_read).next;
+                msg_list_head_read = (*msg_list_head_read).next as *const BloodMessageIns;
+            }
+        }
+    }
+
+    if removed_msg_entry == 0 {
+        log::info!("Could not find message");
+        return;
+    }
+
+    //free the BloodMessageIns object
+    let dealloc_fn =
+        unsafe { std::mem::transmute::<usize, extern "C" fn(u64, u64)>(base + 0xe1d990) };
+    dealloc_fn(0, removed_msg_entry);
+
+    //remove the message text entry
+    remove_message(&message);
+}
+
 // Spawns a message on the floor at the players location
 pub fn spawn_message(message: &str) {
     log::info!("Spawning message {message:?}");
@@ -102,7 +177,7 @@ struct CSNetMan<'a> {
     unk8: [u8; 0x60],
     pub sos_db: usize,
     pub wandering_ghost_db: usize,
-    pub blood_message_db: &'a CSNetBloodMessageDb<'a>,
+    pub blood_message_db: &'a mut CSNetBloodMessageDb<'a>,
     pub bloodstain_db: usize,
     pub bonfire_db: usize,
     pub spiritual_statue_db: usize,
@@ -117,13 +192,26 @@ impl DLRFLocatable for CSNetMan<'_> {
 struct CSNetBloodMessageDb<'a> {
     pub vftable: usize,
     unk8: [u8; 0x58],
-    blood_message_ins_man_1: &'a BloodMessageInsMan,
+    blood_message_ins_man_1: &'a mut BloodMessageInsMan,
 }
 
 #[repr(C)]
 struct BloodMessageInsMan {
     pub vftable: usize,
+    unk8: [u8; 0x8],
+    blood_message_list_head: u64,
 }
+
+#[repr(C)]
+struct BloodMessageIns {
+    unk1: [u8; 0x2C],
+    template: u16,
+    unk2: [u8; 0x89A],
+    next: u64,
+}
+const _: () = assert!(std::mem::size_of::<BloodMessageIns>() == 0x8d0);
+const _: () = assert!(std::mem::offset_of!(BloodMessageIns, template) == 0x2C);
+const _: () = assert!(std::mem::offset_of!(BloodMessageIns, next) == 0x8c8);
 
 #[repr(C)]
 struct SpawnMessageParams {
@@ -165,6 +253,38 @@ fn add_message(message: &str) -> u16 {
         .insert(index, U16CString::from_str(message).unwrap());
 
     index
+}
+
+fn remove_message(message: &str) {
+    let basic_message = String::from(message).retain(|c| !c.is_whitespace());
+
+    let mut map = MESSAGE_TABLE
+        .get_or_init(Default::default)
+        .write()
+        .expect("Could not acquire message table read/write lock");
+
+    map.retain(|_, text| {
+        let basic_text = text.to_string().unwrap().retain(|c| !c.is_whitespace());
+        return basic_text != basic_message;
+    });
+}
+
+fn get_message_id(message: &str) -> Option<u16> {
+    let basic_message = String::from(message).retain(|c| !c.is_whitespace());
+
+    let map = MESSAGE_TABLE
+        .get_or_init(Default::default)
+        .read()
+        .expect("Could not acquire message table read lock");
+
+    for (key, val) in map.clone().into_iter() {
+        let basic_text = val.to_string().unwrap().retain(|c| !c.is_whitespace());
+        if basic_text == basic_message {
+            return Some(key);
+        }
+    }
+
+    return None;
 }
 
 fn get_message(index: u16) -> Option<*const u16> {

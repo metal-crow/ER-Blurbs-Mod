@@ -52,6 +52,7 @@ pub fn entry(_hmodule: usize) -> bool {
 #[serde(tag = "type")]
 pub enum IncomingMessage {
     SpawnBloodMessage { text: String },
+    RemoveBloodMessage { text: String },
     IncreaseDifficulty,
     DecreaseDifficulty,
 }
@@ -71,6 +72,7 @@ fn handle_client_task() {
         while let Ok(msg) = recv_in.try_recv() {
             match msg {
                 IncomingMessage::SpawnBloodMessage { text } => bloodmessage::spawn_message(&text),
+                IncomingMessage::RemoveBloodMessage { text } => bloodmessage::delete_message(&text),
                 IncomingMessage::IncreaseDifficulty => difficulty::increase_difficulty(),
                 IncomingMessage::DecreaseDifficulty => difficulty::decrease_difficulty(),
             }

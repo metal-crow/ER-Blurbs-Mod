@@ -71,7 +71,7 @@ pub fn set_scaling() {
             if chrins_enemy != 0 {
                 //for this enemy, get the speffect for NG+1 scaling speffect
                 //need to check vtable to determine offset
-                let mut param = 0;
+                let param: u64;
                 //enemy
                 if chrins_enemy_vtable == base + 0x2a44010 {
                     param = *((chrins_enemy + 0x598) as *mut u64);
