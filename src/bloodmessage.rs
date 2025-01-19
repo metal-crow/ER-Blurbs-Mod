@@ -76,6 +76,9 @@ pub fn delete_message(message: &str) {
                 }
                 msg_list_head = (*msg_list_head_read).next;
                 msg_list_head_read = (*msg_list_head_read).next as *const BloodMessageIns;
+                if msg_list_head == 0 {
+                    break;
+                }
             }
         }
     }
@@ -98,7 +101,7 @@ pub fn delete_message(message: &str) {
 }
 
 // Spawns a message on the floor at the players location
-pub fn spawn_message(message: &str) {
+pub fn spawn_message(message: &str, msg_visual: i32) {
     log::info!("Spawning message {message:?}");
 
     let netman = {
@@ -148,7 +151,7 @@ pub fn spawn_message(message: &str) {
         unk2c: -1,
         magic_value: u32::MAX, //this is a functional magic value, don't touch
         unk34: -1,
-        unk38: -1,
+        message_sign_visual: msg_visual,
         unk3c: 0,
         unk40: -1,
         unk44: -1,
@@ -235,7 +238,7 @@ struct SpawnMessageParams {
     pub unk2c: i32,
     pub magic_value: u32,
     pub unk34: i32,
-    pub unk38: i32,
+    pub message_sign_visual: i32,
     pub unk3c: u32,
     pub unk40: i32,
     pub unk44: i32,
