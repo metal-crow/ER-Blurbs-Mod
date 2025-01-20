@@ -1,5 +1,6 @@
 use lazy_static::lazy_static;
 use retour::static_detour;
+use std::ptr;
 use std::sync::atomic::AtomicU64;
 use std::sync::mpsc::Sender;
 use std::sync::Mutex;
@@ -34,70 +35,51 @@ pub fn delete_message(message: &str) {
 
         instance.unwrap()
     };
-    let msg_id = match get_message_id(message) {
-        None => {
-            log::info!("Could not find message");
-            return;
-        }
-        Some(x) => x,
-    };
+    let destruct_fn =
+        unsafe { std::mem::transmute::<usize, extern "C" fn(u64, u32)>(base + 0x1b73f0) };
+    let dealloc_fn =
+        unsafe { std::mem::transmute::<usize, extern "C" fn(u64, u64)>(base + 0xe1d990) };
 
-    //remove the entry from the BloodMessageInsMan list
-    let mut removed_msg_entry: u64 = 0;
-
+    //remove the entry(s) from the BloodMessageInsMan list
     unsafe {
-        let mut msg_list_head = netman
+        let mut current_ptr = netman
             .blood_message_db
             .blood_message_ins_man_1
-            .blood_message_list_head;
-        let mut msg_list_head_read = netman
-            .blood_message_db
-            .blood_message_ins_man_1
-            .blood_message_list_head as *const BloodMessageIns;
-        //if it's the head entry
-        if (*msg_list_head_read).template == msg_id {
-            removed_msg_entry = netman
-                .blood_message_db
-                .blood_message_ins_man_1
-                .blood_message_list_head;
-            netman
-                .blood_message_db
-                .blood_message_ins_man_1
-                .blood_message_list_head = (*msg_list_head_read).next;
-        } else {
-            loop {
-                if (*((*msg_list_head_read).next as *const BloodMessageIns)).template == msg_id {
-                    removed_msg_entry = (*msg_list_head_read).next;
-                    (*(msg_list_head as *mut BloodMessageIns)).next =
-                        (*((*(msg_list_head as *const BloodMessageIns)).next
-                            as *const BloodMessageIns))
-                            .next;
-                    break;
+            .blood_message_list_head as *mut BloodMessageIns;
+        let mut prev_ptr: *mut BloodMessageIns = ptr::null_mut();
+        while !current_ptr.is_null() {
+            let current = &mut *current_ptr;
+
+            let current_txt = get_message(current.template);
+            if current_txt.is_some() && normalized_is_equal(current_txt.unwrap(), message) {
+                // Remove the current entry
+                if !prev_ptr.is_null() {
+                    (*prev_ptr).next = current.next;
+                } else {
+                    // Update the head pointer in the manager if the first node is being removed
+                    (*(netman
+                        .blood_message_db
+                        .blood_message_ins_man_1
+                        .blood_message_list_head as *mut u64)) = current.next;
                 }
-                msg_list_head = (*msg_list_head_read).next;
-                msg_list_head_read = (*msg_list_head_read).next as *const BloodMessageIns;
-                if msg_list_head == 0 {
-                    break;
-                }
+
+                // Move to the next node
+                let next_ptr = current.next as *mut BloodMessageIns;
+
+                log::info!("Removing {current_ptr:?}");
+                remove_message(current.template); //remove the template entry
+                                                  // Free and destruct the BloodMessageIns object
+                destruct_fn(current_ptr as u64, 0); //this cleans up the sfx but doesn't free the memory
+                //dealloc_fn(0, current_ptr as u64); //this frees the memory. doing this sometimes causes crash?
+
+                current_ptr = next_ptr;
+            } else {
+                // Move to the next node, keeping the current as the previous
+                prev_ptr = current_ptr;
+                current_ptr = current.next as *mut BloodMessageIns;
             }
         }
     }
-
-    if removed_msg_entry == 0 {
-        log::info!("Could not find message");
-        return;
-    }
-
-    //free and destrut the BloodMessageIns object
-    let destruct_fn =
-        unsafe { std::mem::transmute::<usize, extern "C" fn(u64, u32)>(base + 0x1b73f0) };
-    destruct_fn(removed_msg_entry, 0); //this cleans up the sfx but doesn't free the memory
-    let dealloc_fn =
-        unsafe { std::mem::transmute::<usize, extern "C" fn(u64, u64)>(base + 0xe1d990) };
-    dealloc_fn(0, removed_msg_entry); //this frees the memory
-
-    //remove the message text entry
-    remove_message(&message);
 }
 
 // Spawns a message on the floor at the players location
@@ -174,7 +156,7 @@ pub fn spawn_message(message: &str, msg_visual: i32) {
         &0u64,
     );
 
-    log::info!("Spawned message at {map_id:?} - {map_coordinates:?} with text \"{message}\"");
+    log::info!("Spawned message at {map_id:?} - {map_coordinates:?} template num {0} with text \"{message}\"", params.template_id);
 }
 
 #[repr(C)]
@@ -261,36 +243,12 @@ fn add_message(message: &str) -> u16 {
     index
 }
 
-fn remove_message(message: &str) {
-    let basic_message = String::from(message).retain(|c| !c.is_whitespace());
-
-    let mut map = MESSAGE_TABLE
-        .get_or_init(Default::default)
-        .write()
-        .expect("Could not acquire message table read/write lock");
-
-    map.retain(|_, text| {
-        let basic_text = text.to_string().unwrap().retain(|c| !c.is_whitespace());
-        return basic_text != basic_message;
-    });
-}
-
-fn get_message_id(message: &str) -> Option<u16> {
-    let basic_message = String::from(message).retain(|c| !c.is_whitespace());
-
-    let map = MESSAGE_TABLE
-        .get_or_init(Default::default)
-        .read()
-        .expect("Could not acquire message table read lock");
-
-    for (key, val) in map.clone().into_iter() {
-        let basic_text = val.to_string().unwrap().retain(|c| !c.is_whitespace());
-        if basic_text == basic_message {
-            return Some(key);
-        }
-    }
-
-    return None;
+fn normalized_is_equal(msg1: *const u16, msg2: &str) -> bool {
+    let mut basic_message = String::from(msg2);
+    basic_message.retain(|c| !c.is_whitespace());
+    let mut basic_text = unsafe { U16CString::from_ptr_str(msg1) }.to_string_lossy();
+    basic_text.retain(|c| !c.is_whitespace());
+    return basic_message == basic_text;
 }
 
 fn get_message(index: u16) -> Option<*const u16> {
@@ -300,6 +258,15 @@ fn get_message(index: u16) -> Option<*const u16> {
         .expect("Could not acquire message table read lock")
         .get(&index)
         .map(|f| f.as_ptr())
+}
+
+fn remove_message(id: u16) {
+    let mut map = MESSAGE_TABLE
+        .get_or_init(Default::default)
+        .write()
+        .expect("Could not acquire message table read/write lock");
+
+    map.remove(&id);
 }
 
 static_detour! {
