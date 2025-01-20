@@ -3,6 +3,7 @@ use broadsword::dll;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use std::{
+    fs,
     net::{TcpListener, TcpStream},
     sync::{
         mpsc::{channel, Receiver},
@@ -27,6 +28,7 @@ mod util;
 // Mod starts here
 #[dll::entrypoint]
 pub fn entry(_hmodule: usize) -> bool {
+    let _ = fs::remove_file("bloodmessage-mod.log");
     broadsword::logging::init("bloodmessage-mod.log");
 
     bloodmessage::init_hooks();
