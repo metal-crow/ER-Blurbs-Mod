@@ -22,6 +22,19 @@ use crate::{
 
 // Despawn the message and remove the message text entry
 pub fn delete_message(message: &str) {
+    let base = get_game_base().expect("Could not acquire game base");
+    unsafe {
+        //check if we're loading
+        let loading_helper = *((base + 0x3d60ec8) as *mut u64);
+        if loading_helper == 0 {
+            return;
+        }
+        let loaded = *((loading_helper + 0xED) as *mut u8);
+        if loaded != 1 {
+            return;
+        }
+    }
+
     log::info!("Removing message {message:?}");
 
     let base = get_game_base().expect("Could not acquire game base");
@@ -57,10 +70,8 @@ pub fn delete_message(message: &str) {
                     (*prev_ptr).next = current.next;
                 } else {
                     // Update the head pointer in the manager if the first node is being removed
-                    (*(netman
-                        .blood_message_db
-                        .blood_message_ins_man_1
-                        .blood_message_list_head as *mut u64)) = current.next;
+                    (*(netman.blood_message_db.blood_message_ins_man_1)).blood_message_list_head =
+                        current.next;
                 }
 
                 // Move to the next node
@@ -70,7 +81,7 @@ pub fn delete_message(message: &str) {
                 remove_message(current.template); //remove the template entry
                                                   // Free and destruct the BloodMessageIns object
                 destruct_fn(current_ptr as u64, 0); //this cleans up the sfx but doesn't free the memory
-                //dealloc_fn(0, current_ptr as u64); //this frees the memory. doing this sometimes causes crash?
+                dealloc_fn(0, current_ptr as u64); //this frees the memory
 
                 current_ptr = next_ptr;
             } else {
@@ -84,6 +95,19 @@ pub fn delete_message(message: &str) {
 
 // Spawns a message on the floor at the players location
 pub fn spawn_message(message: &str, msg_visual: i32) {
+    let base = get_game_base().expect("Could not acquire game base");
+    unsafe {
+        //check if we're loading
+        let loading_helper = *((base + 0x3d60ec8) as *mut u64);
+        if loading_helper == 0 {
+            return;
+        }
+        let loaded = *((loading_helper + 0xED) as *mut u8);
+        if loaded != 1 {
+            return;
+        }
+    }
+
     log::info!("Spawning message {message:?}");
 
     let netman = {
