@@ -138,11 +138,12 @@ pub fn handle_client(stream: TcpStream) {
                     if let Message::Text(content) = msg {
                         log::info!("Received text: {content}");
 
-                        let deserialized: IncomingMessage = serde_json::from_str(&content)
-                            .expect("Could not parse incoming message");
-
-                        log::info!("Deserialized incoming message {deserialized:?}");
-                        task_send.send(deserialized).expect("Could not send");
+                        if let Ok(deserialized) = serde_json::from_str(&content) {
+                            log::info!("Deserialized incoming message {deserialized:?}");
+                            task_send.send(deserialized).expect("Could not send");
+                        } else {
+                            log::info!("Error reading incoming message {content:?}");
+                        }
                     }
                 }
                 Err(e) => match e {
