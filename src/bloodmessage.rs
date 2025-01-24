@@ -133,11 +133,13 @@ pub fn spawn_message(message: &str, msg_visual: i32) {
     };
 
     let map_id = world_chr_man.main_player.map_id_1;
-    let map_coordinates = &world_chr_man
-        .main_player
-        .module_container
-        .physics
-        .unk70_position;
+
+    let ride_info = &world_chr_man.main_player.module_container.ride;
+    let player_info = &world_chr_man.main_player.module_container.physics;
+    let map_coordinates = match ride_info.is_mounted {
+        0 => &player_info.unk70_position,
+        1_u8..=u8::MAX => &ride_info.position,
+    };
 
     let base = get_game_base().expect("Could not acquire game base");
 

@@ -127,7 +127,7 @@ pub struct ChrInsModuleContainer<'a> {
     pub model_param_modifier: usize,
     pub dripping: usize,
     pub unke0: usize,
-    pub ride: usize,
+    pub ride: &'a ChrRideModule,
     pub bonemove: usize,
     pub wet: usize,
     pub auto_homing: usize,
@@ -138,6 +138,17 @@ pub struct ChrInsModuleContainer<'a> {
     pub cliff_wind: usize,
     pub navimesh_cost_effect: usize,
 }
+
+#[repr(C)]
+pub struct ChrRideModule {
+    pub vftable: usize,
+    pub unk10: [u8; 0xd8],
+    pub position: Vector4,
+    pub unk: [u8; 0x73],
+    pub is_mounted: u8,
+}
+const _: () = assert!(std::mem::offset_of!(ChrRideModule, position) == 0xe0);
+const _: () = assert!(std::mem::offset_of!(ChrRideModule, is_mounted) == 0x163);
 
 #[repr(C)]
 pub struct ChrPhysicsModule<'a> {
