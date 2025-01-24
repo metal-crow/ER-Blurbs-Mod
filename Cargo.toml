@@ -24,9 +24,18 @@ retour = { git = "https://github.com/Hpmason/retour-rs", features = ["static-det
 widestring = "1.1.0"
 tracing = "0.1.40"
 lazy_static = "1.4"
+minidump-writer = "0.10.1"
 
 [dependencies.windows]
 version = "0.56.0"
 features = [
     "Win32_Foundation",
+    "Win32_System",
+    "Win32_System_Diagnostics",
+    "Win32_System_Diagnostics_Debug",
+    "Win32_System_Kernel",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Kernel",
+    "Win32_System_Memory",
+    "Win32_System_Threading",
 ]

@@ -1,6 +1,7 @@
 use crate::task::CSTaskGroupIndex;
 use broadsword::dll;
 use lazy_static::lazy_static;
+use minidump_writer::MinidumpType;
 use serde::{Deserialize, Serialize};
 use std::{
     fs,
@@ -12,6 +13,9 @@ use std::{
     thread::spawn,
 };
 use tungstenite::{accept, Message};
+use windows::Win32::System::Diagnostics::Debug::{
+    AddVectoredExceptionHandler, SetUnhandledExceptionFilter, EXCEPTION_POINTERS,
+};
 
 const WS_PORT: &str = "10001";
 
@@ -25,11 +29,88 @@ mod reflection;
 mod task;
 mod util;
 
+fn crash_handler(exception_info: *const EXCEPTION_POINTERS) {
+    unsafe {
+        let context = *(*exception_info).ContextRecord;
+        log::info!(
+            "Unhandled exception caught! {0:?}",
+            (*(*exception_info).ExceptionRecord)
+        );
+        log::info!("Rax: 0x{:X}", context.Rax);
+        log::info!("Rcx: 0x{:X}", context.Rcx);
+        log::info!("Rdx: 0x{:X}", context.Rdx);
+        log::info!("Rbx: 0x{:X}", context.Rbx);
+        log::info!("Rsp: 0x{:X}", context.Rsp);
+        log::info!("Rbp: 0x{:X}", context.Rbp);
+        log::info!("Rsi: 0x{:X}", context.Rsi);
+        log::info!("Rdi: 0x{:X}", context.Rdi);
+        log::info!("R8:  0x{:X}", context.R8);
+        log::info!("R9:  0x{:X}", context.R9);
+        log::info!("R10: 0x{:X}", context.R10);
+        log::info!("R11: 0x{:X}", context.R11);
+        log::info!("R12: 0x{:X}", context.R12);
+        log::info!("R13: 0x{:X}", context.R13);
+        log::info!("R14: 0x{:X}", context.R14);
+        log::info!("R15: 0x{:X}", context.R15);
+        log::info!("Rip: 0x{:X}", context.Rip);
+        log::info!("LastBranchToRip: 0x{:X}", context.LastBranchToRip);
+        log::info!("LastBranchFromRip: 0x{:X}", context.LastBranchFromRip);
+        log::info!("LastExceptionToRip: 0x{:X}", context.LastExceptionToRip);
+        log::info!("LastExceptionFromRip: 0x{:X}", context.LastExceptionFromRip);
+    }
+
+    let mut minidump_file = std::fs::File::create("crash.dmp").expect("failed to create file");
+
+    // Attempts to the write the minidump
+    minidump_writer::minidump_writer::MinidumpWriter::dump_local_context(
+        // The exception code, presumably one of STATUS_*. Defaults to STATUS_NONCONTINUABLE_EXCEPTION if not specified
+        None,
+        // If not specified, uses the current thread as the "crashing" thread,
+        // so this is equivalent to passing `None`, but it could be any thread
+        // in the process
+        Some(unsafe { windows::Win32::System::Threading::GetCurrentThreadId() }),
+        Some(
+            MinidumpType::Normal
+                | MinidumpType::WithIndirectlyReferencedMemory
+                | MinidumpType::WithProcessThreadData
+                | MinidumpType::WithThreadInfo
+                | MinidumpType::WithCodeSegs,
+        ),
+        &mut minidump_file,
+    )
+    .expect("failed to write minidump");
+}
+
+unsafe extern "system" fn my_exception_filter1(exception_info: *const EXCEPTION_POINTERS) -> i32 {
+    if ((*(*exception_info).ExceptionRecord).ExceptionCode).0 as u32 & 0xFF000000 != 0xC0000000 {
+        return 0;
+    }
+
+    crash_handler(exception_info);
+
+    1
+}
+
+unsafe extern "system" fn my_exception_filter2(exception_info: *mut EXCEPTION_POINTERS) -> i32 {
+    if ((*(*exception_info).ExceptionRecord).ExceptionCode).0 as u32 & 0xFF000000 != 0xC0000000 {
+        return 0;
+    }
+
+    crash_handler(exception_info);
+
+    1 // EXCEPTION_EXECUTE_HANDLER
+}
+
 // Mod starts here
 #[dll::entrypoint]
 pub fn entry(_hmodule: usize) -> bool {
     let _ = fs::remove_file("bloodmessage-mod.log");
     broadsword::logging::init("bloodmessage-mod.log");
+    unsafe {
+        // Set the unhandled exception filter
+        SetUnhandledExceptionFilter(Some(my_exception_filter1));
+        AddVectoredExceptionHandler(1, Some(my_exception_filter2));
+    }
 
     bloodmessage::init_hooks();
 
