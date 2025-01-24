@@ -53,7 +53,7 @@ pub fn set_scaling() {
         let mut chr_count = *((open_field_chr_set + 0x20) as *mut u32);
         if chr_count == 0xffffffff {
             chr_count = *((chr_set + 0x10) as *mut u32);
-            use_legacy = true
+            use_legacy = true;
         }
 
         if use_legacy {
@@ -67,8 +67,12 @@ pub fn set_scaling() {
 
         for i in 1..chr_count {
             let chrins_enemy = *((chr_set + (i * 0x10) as u64) as *mut u64);
-            let chrins_enemy_vtable = *((chrins_enemy + 0) as *mut usize);
             if chrins_enemy != 0 {
+                let chrins_enemy_vtable = *((chrins_enemy + 0) as *mut usize);
+                if chrins_enemy_vtable == 0 {
+                    continue;
+                }
+
                 //for this enemy, get the speffect for NG+1 scaling speffect
                 //need to check vtable to determine offset
                 let param: u64;
@@ -82,19 +86,19 @@ pub fn set_scaling() {
                 }
                 //unknown
                 else {
-                    return;
+                    continue;
                 }
                 if param == 0 {
-                    return;
+                    continue;
                 }
 
                 let npcparam_st = *((param + 0) as *mut u64);
                 if npcparam_st == 0 {
-                    return;
+                    continue;
                 }
                 let gameclear_speffect = *((npcparam_st + 0x6c) as *mut u32);
                 if gameclear_speffect == 0 {
-                    return;
+                    continue;
                 }
 
                 //i don't have to do any extar NG+X X>1 work, since the game seems to magically apply the extra scaling based on the game_data_man.clear_count
