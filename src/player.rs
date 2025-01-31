@@ -1,4 +1,6 @@
+use crate::reflection::get_instance;
 use crate::reflection::DLRFLocatable;
+use crate::util::{get_game_base, Position};
 
 #[repr(C)]
 #[derive(Debug, Clone)]
@@ -206,3 +208,49 @@ impl DLRFLocatable for GameDataMan {
 
 const _: () = assert!(std::mem::size_of::<GameDataMan>() == 0x124);
 const _: () = assert!(std::mem::offset_of!(GameDataMan, clear_count) == 0x120);
+
+pub fn report_position() {
+    let pos = get_position();
+    //report position over net
+}
+
+fn get_position() -> Option<Position> {
+    let base = get_game_base().expect("Could not acquire game base");
+    unsafe {
+        //check if we're loading
+        let loading_helper = *((base + 0x3d60ec8) as *mut u64);
+        if loading_helper == 0 {
+            return None;
+        }
+        let loaded = *((loading_helper + 0xED) as *mut u8);
+        if loaded != 1 {
+            return None;
+        }
+    }
+
+    log::info!("Getting PC coords");
+
+    let world_chr_man = {
+        let instance = get_instance::<WorldChrMan>().expect("Could not find WorldChrMan static");
+
+        if instance.is_none() {
+            log::info!("WorldChrMan does not have an instance");
+            return None;
+        }
+
+        instance.unwrap()
+    };
+
+    let ride_info = &world_chr_man.main_player.module_container.ride;
+    let player_info = &world_chr_man.main_player.module_container.physics;
+    let map_coordinates = match ride_info.is_mounted {
+        0 => &player_info.unk70_position,
+        1_u8..=u8::MAX => &ride_info.position,
+    };
+
+    return Some(Position {
+        x: map_coordinates.0,
+        y: map_coordinates.1,
+        z: map_coordinates.2,
+    });
+}

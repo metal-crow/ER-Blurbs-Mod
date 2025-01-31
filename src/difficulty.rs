@@ -1,9 +1,6 @@
-use crate::{
-    player::GameDataMan,
-    util::{display_message, get_game_base, get_section, FullscreenMsgIndex},
+use crate::util::{
+    display_message, get_game_base, get_game_data_man, get_world_chr_man, FullscreenMsgIndex,
 };
-use broadsword::scanner;
-use std::sync::LazyLock;
 
 pub fn set_scaling() {
     let base = get_game_base().expect("Could not acquire game base");
@@ -165,54 +162,3 @@ pub fn decrease_difficulty() {
 
     display_message(ng_val_to_msg(game_data_man.clear_count, false));
 }
-
-pub fn get_game_data_man<'a>() -> Option<&'a mut GameDataMan> {
-    let gdm = &*GAME_DATA_MAN;
-    let gdm_ptr_ptr = *gdm as *const *mut GameDataMan;
-
-    unsafe { gdm_ptr_ptr.as_ref().and_then(|gdm_ptr| gdm_ptr.as_mut()) }
-}
-
-static GAME_DATA_MAN: LazyLock<usize> = LazyLock::new(|| {
-    const GAME_DATA_MAN_PATTERN: &str = "48 8B 05 ? ? ? ? 48 85 C0 74 05 48 8B 40 58 C3 C3";
-    const INSTRUCTION_SIZE: usize = 7;
-
-    let (text_range, text_slice) = get_section(".text").expect("Could not get game text section.");
-
-    let pattern = scanner::Pattern::from_byte_pattern(GAME_DATA_MAN_PATTERN)
-        .expect("Could not parse pattern");
-
-    let result = scanner::simple::scan(text_slice, &pattern).expect("Could not find GameDataMan");
-
-    let mut buff = [0; 4];
-    buff.copy_from_slice(&text_slice[result.location + 3..result.location + 3 + 4]);
-    let gameman =
-        text_range.start + result.location + INSTRUCTION_SIZE + u32::from_le_bytes(buff) as usize;
-    log::info!("GameDataMan ptr {result:?} + {text_range:?} = {gameman:?}");
-    return gameman;
-});
-
-pub fn get_world_chr_man() -> Option<u64> {
-    let wcm = &*WORLD_CHR_MAN;
-    let wcm_ptr_ptr = *wcm as *mut u64;
-    unsafe { Some(*wcm_ptr_ptr as u64) }
-}
-
-static WORLD_CHR_MAN: LazyLock<usize> = LazyLock::new(|| {
-    const WORLD_CHR_MAN_PATTERN: &str = "48 8B 05 ?? ?? ?? ?? 48 85 C0 74 0F 48 39 88";
-    const INSTRUCTION_SIZE: usize = 7;
-
-    let (text_range, text_slice) = get_section(".text").expect("Could not get game text section.");
-
-    let pattern = scanner::Pattern::from_byte_pattern(WORLD_CHR_MAN_PATTERN)
-        .expect("Could not parse pattern");
-
-    let result = scanner::simple::scan(text_slice, &pattern).expect("Could not find WorldChrMan");
-
-    let mut buff = [0; 4];
-    buff.copy_from_slice(&text_slice[result.location + 3..result.location + 3 + 4]);
-    let worldman =
-        text_range.start + result.location + INSTRUCTION_SIZE + u32::from_le_bytes(buff) as usize;
-    log::info!("WorldChrMan ptr {result:?} + {text_range:?} = {worldman:?}");
-    return worldman;
-});

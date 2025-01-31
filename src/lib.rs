@@ -29,6 +29,8 @@ mod reflection;
 mod task;
 mod util;
 
+mod spiritash;
+
 fn crash_handler(exception_info: *const EXCEPTION_POINTERS) {
     unsafe {
         let context = *(*exception_info).ContextRecord;
