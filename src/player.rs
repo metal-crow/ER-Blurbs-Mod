@@ -258,7 +258,7 @@ fn get_position() -> Option<Position> {
 
     return Some(Position {
         x: map_coordinates.0,
-        y: map_coordinates.1,
-        z: map_coordinates.2,
+        z: map_coordinates.1,
+        y: map_coordinates.2,
     });
 }

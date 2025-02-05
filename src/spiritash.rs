@@ -91,8 +91,8 @@ fn get_position() -> Option<Vec<Position>> {
 
                 positions.push(Position {
                     x: coords.0,
-                    y: coords.1,
-                    z: coords.2,
+                    z: coords.1,
+                    y: coords.2,
                 });
             }
         }
