@@ -2,10 +2,28 @@ use crate::player::GameDataMan;
 use crate::reflection::SectionLookupError;
 use broadsword::runtime;
 use broadsword::scanner;
+use lazy_static::lazy_static;
+use serde::Serialize;
+use std::sync::mpsc::Sender;
 use std::sync::LazyLock;
+use std::sync::Mutex;
 use std::{ops, slice};
 use widestring::U16CString;
 
+#[derive(Debug, Serialize)]
+#[serde(tag = "type")]
+pub enum OutgoingMessage {
+    BloodMessageEvent { text: String },
+    PlayerPositionEvent { pos: Position },
+    SpiritPositionEvent { pos: Vec<Position> },
+}
+
+lazy_static! {
+    pub(crate) static ref GAMEPUSH_SEND: Mutex<Option<Sender<tungstenite::Message>>> =
+        Mutex::new(None);
+}
+
+#[derive(Debug, Serialize)]
 pub struct Position {
     pub x: f32,
     pub y: f32,

@@ -1,8 +1,9 @@
 use crate::task::CSTaskGroupIndex;
+use crate::util::GAMEPUSH_SEND;
 use broadsword::dll;
 use lazy_static::lazy_static;
 use minidump_writer::MinidumpType;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::{
     fs,
     net::{TcpListener, TcpStream},
@@ -142,12 +143,6 @@ pub enum IncomingMessage {
     DecreaseDifficulty,
 }
 
-#[derive(Debug, Serialize)]
-#[serde(tag = "type")]
-pub enum OutgoingMessage {
-    BloodMessageEvent { text: String },
-}
-
 lazy_static! {
     static ref TASK_ENQUEUE: Mutex<Option<Receiver<IncomingMessage>>> = Mutex::new(None);
 }
@@ -175,9 +170,9 @@ pub fn handle_client(stream: TcpStream) {
     let (task_send, task_recv) = channel();
     *TASK_ENQUEUE.lock().unwrap() = Some(task_recv);
 
-    // Setup a channel for notification if a player reads a message
-    let (msginfo_send, msginfo_recv) = channel();
-    *bloodmessage::MSGINFO_SEND.lock().unwrap() = Some(msginfo_send);
+    // Setup a channel for the game pushing messages to the server
+    let (gamepush_send, gamepush_recv) = channel();
+    *GAMEPUSH_SEND.lock().unwrap() = Some(gamepush_send);
 
     // Start the task. This serves this client until connection is closed
     let task_msgs = task::run_task(
@@ -199,16 +194,10 @@ pub fn handle_client(stream: TcpStream) {
         .expect("Could not accept stream");
 
     loop {
-        //listen for data from the game for messages being read, and pass it back to the remote client
-        if let Ok(msg) = msginfo_recv.try_recv() {
-            log::info!("Sending player read message {msg:?}");
-
-            websocket
-                .send(Message::Text(
-                    serde_json::to_string(&OutgoingMessage::BloodMessageEvent { text: msg })
-                        .unwrap(),
-                ))
-                .unwrap()
+        //listen for data from the game for messages being read, or other events, and pass it back to the remote client
+        if let Ok(msg) = gamepush_recv.try_recv() {
+            log::info!("Pushing message {msg:?}");
+            websocket.send(msg).unwrap();
         }
 
         //listen for data from the remote client, and pass it to the IncomingMessage handler
@@ -241,7 +230,7 @@ pub fn handle_client(stream: TcpStream) {
         }
     }
 
-    *bloodmessage::MSGINFO_SEND.lock().unwrap() = None;
+    *GAMEPUSH_SEND.lock().unwrap() = None;
     *TASK_ENQUEUE.lock().unwrap() = None;
     drop(task_scaling);
     drop(task_msgs);

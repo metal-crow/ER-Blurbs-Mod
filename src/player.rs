@@ -1,6 +1,6 @@
 use crate::reflection::get_instance;
 use crate::reflection::DLRFLocatable;
-use crate::util::{get_game_base, Position};
+use crate::util::{get_game_base, OutgoingMessage, Position, GAMEPUSH_SEND};
 
 #[repr(C)]
 #[derive(Debug, Clone)]
@@ -210,8 +210,16 @@ const _: () = assert!(std::mem::size_of::<GameDataMan>() == 0x124);
 const _: () = assert!(std::mem::offset_of!(GameDataMan, clear_count) == 0x120);
 
 pub fn report_position() {
-    let pos = get_position();
-    //report position over net
+    if let Some(pos) = get_position() {
+        if let Some(sender) = GAMEPUSH_SEND.lock().unwrap().as_ref() {
+            sender
+                .send(tungstenite::Message::Text(
+                    serde_json::to_string(&OutgoingMessage::PlayerPositionEvent { pos: pos })
+                        .unwrap(),
+                ))
+                .expect("Send failed");
+        }
+    }
 }
 
 fn get_position() -> Option<Position> {

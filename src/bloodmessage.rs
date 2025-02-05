@@ -2,8 +2,6 @@ use lazy_static::lazy_static;
 use retour::static_detour;
 use std::ptr;
 use std::sync::atomic::AtomicU64;
-use std::sync::mpsc::Sender;
-use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{
     collections::HashMap,
@@ -12,9 +10,10 @@ use std::{
         OnceLock, RwLock,
     },
 };
+use tungstenite::Message;
 use widestring::{U16CStr, U16CString};
 
-use crate::util::get_game_base;
+use crate::util::{get_game_base, OutgoingMessage, GAMEPUSH_SEND};
 use crate::{
     player::{MapId, WorldChrMan},
     reflection::{get_instance, DLRFLocatable},
@@ -316,7 +315,6 @@ pub fn init_hooks() {
 }
 
 lazy_static! {
-    pub(crate) static ref MSGINFO_SEND: Mutex<Option<Sender<String>>> = Mutex::new(None);
     static ref msg_last_read: AtomicU64 = AtomicU64::new(0);
 }
 
@@ -330,13 +328,16 @@ fn blood_message_lookup(param_1: u64, template_id: u32) -> *const u16 {
                 .expect("Time went backwards")
                 .as_secs();
             if cur_read_time - msg_last_read.load(Ordering::Relaxed) > 2 {
-                if let Some(sender) = MSGINFO_SEND.lock().unwrap().as_ref() {
+                if let Some(sender) = GAMEPUSH_SEND.lock().unwrap().as_ref() {
                     sender
-                        .send(
-                            unsafe { U16CStr::from_ptr_str(message) }
-                                .to_string()
-                                .unwrap(),
-                        )
+                        .send(Message::Text(
+                            serde_json::to_string(&OutgoingMessage::BloodMessageEvent {
+                                text: unsafe { U16CStr::from_ptr_str(message) }
+                                    .to_string()
+                                    .unwrap(),
+                            })
+                            .unwrap(),
+                        ))
                         .expect("Send failed");
                 }
             }
