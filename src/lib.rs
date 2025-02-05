@@ -141,6 +141,8 @@ pub enum IncomingMessage {
     RemoveBloodMessage { text: String },
     IncreaseDifficulty,
     DecreaseDifficulty,
+    GetPlayerPosition,
+    GetSpiritPosition,
 }
 
 lazy_static! {
@@ -157,6 +159,8 @@ fn handle_client_task() {
                 IncomingMessage::RemoveBloodMessage { text } => bloodmessage::delete_message(&text),
                 IncomingMessage::IncreaseDifficulty => difficulty::increase_difficulty(),
                 IncomingMessage::DecreaseDifficulty => difficulty::decrease_difficulty(),
+                IncomingMessage::GetPlayerPosition => player::report_position(),
+                IncomingMessage::GetSpiritPosition => spiritash::report_position(),
             }
         }
     }
