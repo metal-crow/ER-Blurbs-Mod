@@ -48,28 +48,13 @@ fn get_position() -> Option<Vec<Position>> {
     }
 
     unsafe {
-        //get list of all entities around the current player
-        let mut chr_set = *((world_chr_man + 0x1CC60) as *mut u64); //legacy dungeon
-        if chr_set == 0 {
-            return None;
-        }
-        let open_field_chr_set = *((world_chr_man + 0x1E270) as *mut u64); //open world
-        if open_field_chr_set == 0 {
-            return None;
-        }
-
-        let mut use_legacy = false;
-        let mut chr_count = *((open_field_chr_set + 0x20) as *mut u32);
+        let buddy_chr_set = (world_chr_man + 0x10f90) as u64;
+        let mut chr_count = *((buddy_chr_set + 0x20) as *mut u32);
         if chr_count == 0xffffffff {
-            chr_count = *((chr_set + 0x10) as *mut u32);
-            use_legacy = true;
+            chr_count = *((buddy_chr_set + 0x10) as *mut u32);
         }
 
-        if use_legacy {
-            chr_set = *((chr_set + 0x18) as *mut u64);
-        } else {
-            chr_set = *((open_field_chr_set + 0x18) as *mut u64);
-        }
+        let chr_set = *((buddy_chr_set + 0x18) as *mut u64);
         if chr_set == 0 {
             return None;
         }
