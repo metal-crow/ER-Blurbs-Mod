@@ -190,6 +190,12 @@ pub fn handle_client(stream: TcpStream) {
         CSTaskGroupIndex::WorldChrMan_PostPhysics,
     );
 
+    // Start the task to handle reporting spirit ash events
+    let task_scaling = task::run_task(
+        spiritash::get_status,
+        CSTaskGroupIndex::WorldChrMan_PostPhysics,
+    );
+
     stream
         .set_nonblocking(true)
         .expect("set_nonblocking call failed");

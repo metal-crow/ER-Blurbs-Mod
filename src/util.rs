@@ -16,6 +16,9 @@ pub enum OutgoingMessage {
     BloodMessageEvent { text: String },
     PlayerPositionEvent { pos: Position },
     SpiritPositionEvent { pos: Vec<Position> },
+    SpiritSummonEvent,
+    SpiritLeaveEvent,
+    SpiritDeathEvent,
 }
 
 lazy_static! {

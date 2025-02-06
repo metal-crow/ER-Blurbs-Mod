@@ -101,7 +101,7 @@ pub struct PlayerIns<'a> {
 
 #[repr(C)]
 pub struct ChrInsModuleContainer<'a> {
-    pub data: usize,
+    pub data: &'a ChrDataModule,
     pub action_flag: usize,
     pub behavior_script: usize,
     pub time_act: usize,
@@ -141,6 +141,14 @@ pub struct ChrInsModuleContainer<'a> {
     pub cliff_wind: usize,
     pub navimesh_cost_effect: usize,
 }
+
+#[repr(C)]
+pub struct ChrDataModule {
+    pub vftable: usize,
+    pub unk10: [u8; 0x130],
+    pub hp: u32,
+}
+const _: () = assert!(std::mem::offset_of!(ChrDataModule, hp) == 0x138);
 
 #[repr(C)]
 pub struct ChrRideModule {
