@@ -81,18 +81,10 @@ client.on('open', () => {
             });
         }
         if (key.name === 'e') {
-            console.log('Key pressed. Sending GetPlayerPosition message.');
+            console.log('Key pressed. Sending GetPlayerSpiritPosition message.');
             client.send(
                 JSON.stringify({
-                    type: "GetPlayerPosition",
-                })
-            );
-        }
-        if (key.name === 'f') {
-            console.log('Key pressed. Sending GetSpiritPosition message.');
-            client.send(
-                JSON.stringify({
-                    type: "GetSpiritPosition",
+                    type: "GetPlayerSpiritPosition",
                 })
             );
         }

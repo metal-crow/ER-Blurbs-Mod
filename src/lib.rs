@@ -141,8 +141,7 @@ pub enum IncomingMessage {
     RemoveBloodMessage { text: String },
     IncreaseDifficulty,
     DecreaseDifficulty,
-    GetPlayerPosition,
-    GetSpiritPosition,
+    GetPlayerSpiritPosition,
 }
 
 lazy_static! {
@@ -159,8 +158,7 @@ fn handle_client_task() {
                 IncomingMessage::RemoveBloodMessage { text } => bloodmessage::delete_message(&text),
                 IncomingMessage::IncreaseDifficulty => difficulty::increase_difficulty(),
                 IncomingMessage::DecreaseDifficulty => difficulty::decrease_difficulty(),
-                IncomingMessage::GetPlayerPosition => player::report_position(),
-                IncomingMessage::GetSpiritPosition => spiritash::report_position(),
+                IncomingMessage::GetPlayerSpiritPosition => util::report_position(),
             }
         }
     }
@@ -191,7 +189,7 @@ pub fn handle_client(stream: TcpStream) {
     );
 
     // Start the task to handle reporting spirit ash events
-    let task_scaling = task::run_task(
+    let spirit_report = task::run_task(
         spiritash::get_status,
         CSTaskGroupIndex::WorldChrMan_PostPhysics,
     );
@@ -242,6 +240,7 @@ pub fn handle_client(stream: TcpStream) {
 
     *GAMEPUSH_SEND.lock().unwrap() = None;
     *TASK_ENQUEUE.lock().unwrap() = None;
+    drop(spirit_report);
     drop(task_scaling);
     drop(task_msgs);
 }

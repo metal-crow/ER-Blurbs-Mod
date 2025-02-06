@@ -1,6 +1,6 @@
 use crate::reflection::get_instance;
 use crate::reflection::DLRFLocatable;
-use crate::util::{get_game_base, OutgoingMessage, Position, GAMEPUSH_SEND};
+use crate::util::{get_field_area, get_game_base, CameraInfo, Position};
 
 #[repr(C)]
 #[derive(Debug, Clone)]
@@ -218,16 +218,56 @@ impl DLRFLocatable for GameDataMan {
 const _: () = assert!(std::mem::size_of::<GameDataMan>() == 0x124);
 const _: () = assert!(std::mem::offset_of!(GameDataMan, clear_count) == 0x120);
 
-pub fn report_position() {
-    if let Some(pos) = get_position() {
-        if let Some(sender) = GAMEPUSH_SEND.lock().unwrap().as_ref() {
-            sender
-                .send(tungstenite::Message::Text(
-                    serde_json::to_string(&OutgoingMessage::PlayerPositionEvent { pos: pos })
-                        .unwrap(),
-                ))
-                .expect("Send failed");
+pub fn get_camera() -> Option<CameraInfo> {
+    let base = get_game_base().expect("Could not acquire game base");
+    unsafe {
+        //check if we're loading
+        let loading_helper = *((base + 0x3d60ec8) as *mut u64);
+        if loading_helper == 0 {
+            return None;
         }
+        let loaded = *((loading_helper + 0xED) as *mut u8);
+        if loaded != 1 {
+            return None;
+        }
+    }
+
+    let field_area = {
+        let field_area = get_field_area();
+        if field_area.is_none() {
+            log::info!("field_area does not have an instance");
+            return None;
+        }
+
+        field_area.unwrap()
+    };
+    if field_area == 0 {
+        return None;
+    }
+
+    unsafe {
+        let game_rend = *((field_area + 0x20) as *mut u64);
+        if game_rend == 0 {
+            return None;
+        }
+        let cam1 = *((game_rend + 0x18) as *mut u64);
+        if cam1 == 0 {
+            return None;
+        }
+        let x = *((cam1 + 0x40) as *mut f32);
+        let y = *((cam1 + 0x44) as *mut f32);
+        let z = *((cam1 + 0x48) as *mut f32);
+        let a = *((cam1 + 0x30) as *mut f32);
+        let b = *((cam1 + 0x34) as *mut f32);
+        let c = *((cam1 + 0x38) as *mut f32);
+        return Some(CameraInfo {
+            x: x,
+            y: y,
+            z: z,
+            a: a,
+            b: b,
+            c: c,
+        });
     }
 }
 
@@ -244,8 +284,6 @@ fn get_position() -> Option<Position> {
             return None;
         }
     }
-
-    log::info!("Getting PC coords");
 
     let world_chr_man = {
         let instance = get_instance::<WorldChrMan>().expect("Could not find WorldChrMan static");

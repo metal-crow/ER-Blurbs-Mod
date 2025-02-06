@@ -1,5 +1,6 @@
-use crate::player::GameDataMan;
+use crate::player::{get_camera, GameDataMan};
 use crate::reflection::SectionLookupError;
+use crate::spiritash;
 use broadsword::runtime;
 use broadsword::scanner;
 use lazy_static::lazy_static;
@@ -13,9 +14,13 @@ use widestring::U16CString;
 #[derive(Debug, Serialize)]
 #[serde(tag = "type")]
 pub enum OutgoingMessage {
-    BloodMessageEvent { text: String },
-    PlayerPositionEvent { pos: Position },
-    SpiritPositionEvent { pos: Vec<Position> },
+    BloodMessageEvent {
+        text: String,
+    },
+    PositionEvent {
+        player: CameraInfo,
+        spirit: Vec<Position>,
+    },
     SpiritSummonEvent,
     SpiritLeaveEvent,
     SpiritDeathEvent,
@@ -31,6 +36,34 @@ pub struct Position {
     pub x: f32,
     pub y: f32,
     pub z: f32,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CameraInfo {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+    pub a: f32,
+    pub b: f32,
+    pub c: f32,
+}
+
+pub fn report_position() {
+    if let Some(cam) = get_camera() {
+        if let Some(spirits) = spiritash::get_position() {
+            if let Some(sender) = GAMEPUSH_SEND.lock().unwrap().as_ref() {
+                sender
+                    .send(tungstenite::Message::Text(
+                        serde_json::to_string(&OutgoingMessage::PositionEvent {
+                            player: cam,
+                            spirit: spirits,
+                        })
+                        .unwrap(),
+                    ))
+                    .expect("Send failed");
+            }
+        }
+    }
 }
 
 /// Attempts to figure out what people called the exe
@@ -182,4 +215,28 @@ static WORLD_CHR_MAN: LazyLock<usize> = LazyLock::new(|| {
         text_range.start + result.location + INSTRUCTION_SIZE + u32::from_le_bytes(buff) as usize;
     log::info!("WorldChrMan ptr {result:?} + {text_range:?} = {worldman:?}");
     return worldman;
+});
+
+pub fn get_field_area() -> Option<u64> {
+    let wcm = &*FIELD_AREA;
+    let wcm_ptr_ptr = *wcm as *mut u64;
+    unsafe { Some(*wcm_ptr_ptr as u64) }
+}
+
+static FIELD_AREA: LazyLock<usize> = LazyLock::new(|| {
+    const FAPATTERN: &str = "48 8B 3D ?? ?? ?? ?? 49 8B D8 48 8B F2 4C 8B F1 48 85 FF";
+    const INSTRUCTION_SIZE: usize = 7;
+
+    let (text_range, text_slice) = get_section(".text").expect("Could not get game text section.");
+
+    let pattern = scanner::Pattern::from_byte_pattern(FAPATTERN).expect("Could not parse pattern");
+
+    let result = scanner::simple::scan(text_slice, &pattern).expect("Could not find Field Area");
+
+    let mut buff = [0; 4];
+    buff.copy_from_slice(&text_slice[result.location + 3..result.location + 3 + 4]);
+    let field =
+        text_range.start + result.location + INSTRUCTION_SIZE + u32::from_le_bytes(buff) as usize;
+    log::info!("Field ptr {result:?} + {text_range:?} = {field:?}");
+    return field;
 });

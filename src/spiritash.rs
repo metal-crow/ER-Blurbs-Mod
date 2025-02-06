@@ -4,22 +4,7 @@ use crate::{
 };
 use std::sync::atomic::{AtomicBool, Ordering};
 
-pub fn report_position() {
-    if let Some(pos) = get_position() {
-        if let Some(sender) = GAMEPUSH_SEND.lock().unwrap().as_ref() {
-            sender
-                .send(tungstenite::Message::Text(
-                    serde_json::to_string(&OutgoingMessage::SpiritPositionEvent { pos: pos })
-                        .unwrap(),
-                ))
-                .expect("Send failed");
-        }
-    }
-}
-
-fn get_position() -> Option<Vec<Position>> {
-    log::info!("Getting Spirit coords");
-
+pub fn get_position() -> Option<Vec<Position>> {
     let mut positions = Vec::new();
 
     let base = get_game_base().expect("Could not acquire game base");
