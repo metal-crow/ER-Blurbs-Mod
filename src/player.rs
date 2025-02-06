@@ -257,16 +257,28 @@ pub fn get_camera() -> Option<CameraInfo> {
         let x = *((cam1 + 0x40) as *mut f32);
         let y = *((cam1 + 0x44) as *mut f32);
         let z = *((cam1 + 0x48) as *mut f32);
-        let a = *((cam1 + 0x30) as *mut f32);
-        let b = *((cam1 + 0x34) as *mut f32);
-        let c = *((cam1 + 0x38) as *mut f32);
+        let a1 = *((cam1 + 0x10) as *mut f32);
+        let a2 = *((cam1 + 0x14) as *mut f32);
+        let a3 = *((cam1 + 0x18) as *mut f32);
+        let b1 = *((cam1 + 0x20) as *mut f32);
+        let b2 = *((cam1 + 0x24) as *mut f32);
+        let b3 = *((cam1 + 0x28) as *mut f32);
+        let c1 = *((cam1 + 0x30) as *mut f32);
+        let c2 = *((cam1 + 0x34) as *mut f32);
+        let c3 = *((cam1 + 0x38) as *mut f32);
         return Some(CameraInfo {
             x: x,
             y: y,
             z: z,
-            a: a,
-            b: b,
-            c: c,
+            a1: a1,
+            a2: a2,
+            a3: a3,
+            b1: b1,
+            b2: b2,
+            b3: b3,
+            c1: c1,
+            c2: c2,
+            c3: c3,
         });
     }
 }

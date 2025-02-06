@@ -43,9 +43,15 @@ pub struct CameraInfo {
     pub x: f32,
     pub y: f32,
     pub z: f32,
-    pub a: f32,
-    pub b: f32,
-    pub c: f32,
+    pub a1: f32,
+    pub a2: f32,
+    pub a3: f32,
+    pub b1: f32,
+    pub b2: f32,
+    pub b3: f32,
+    pub c1: f32,
+    pub c2: f32,
+    pub c3: f32,
 }
 
 pub fn report_position() {
