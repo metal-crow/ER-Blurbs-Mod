@@ -23,7 +23,9 @@ pub enum OutgoingMessage {
     },
     SpiritSummonEvent,
     SpiritLeaveEvent,
-    SpiritDeathEvent,
+    SpiritDeathEvent {
+        id: i32,
+    },
 }
 
 lazy_static! {
@@ -33,6 +35,7 @@ lazy_static! {
 
 #[derive(Debug, Serialize)]
 pub struct Position {
+    pub id: i32,
     pub x: f32,
     pub y: f32,
     pub z: f32,

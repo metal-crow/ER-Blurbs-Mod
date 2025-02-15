@@ -2,7 +2,9 @@ use crate::{
     player::ChrIns,
     util::{get_game_base, get_world_chr_man, OutgoingMessage, Position, GAMEPUSH_SEND},
 };
-use std::sync::atomic::{AtomicBool, Ordering};
+use lazy_static::lazy_static;
+use std::collections::HashMap;
+use std::sync::Mutex;
 
 pub fn get_position() -> Option<Vec<Position>> {
     let mut positions = Vec::new();
@@ -59,8 +61,10 @@ pub fn get_position() -> Option<Vec<Position>> {
                 }
 
                 let coords = &(*chrins).module_container.physics.unk70_position;
+                let handle = (*chrins).field_ins_handle.instance_id;
 
                 positions.push(Position {
+                    id: handle,
                     x: coords.0,
                     z: coords.1,
                     y: coords.2,
@@ -72,7 +76,9 @@ pub fn get_position() -> Option<Vec<Position>> {
     return Some(positions);
 }
 
-static LAST_SPIRIT_EXIST_N_ALIVE: AtomicBool = AtomicBool::new(false);
+lazy_static! {
+    static ref LAST_SPIRIT_CHECK: Mutex<HashMap<i32, u32>> = Mutex::new(HashMap::new());
+}
 
 pub fn get_status() {
     let base = get_game_base().expect("Could not acquire game base");
@@ -100,8 +106,7 @@ pub fn get_status() {
         return;
     }
 
-    let mut cur_spirit_count = 0;
-    let mut cur_spirit_hp = 0;
+    let mut cur_spirit_check: HashMap<i32, u32> = HashMap::new();
 
     unsafe {
         let buddy_chr_set = (world_chr_man + 0x10f90) as u64;
@@ -129,50 +134,54 @@ pub fn get_status() {
                 }
 
                 //buddy system seems to not actually set it's count, only sets capacity so we have to manually count
-                cur_spirit_count += 1;
-                cur_spirit_hp += (*chrins).module_container.data.hp;
+                cur_spirit_check.insert(
+                    (*chrins).field_ins_handle.instance_id,
+                    (*chrins).module_container.data.hp,
+                );
             }
         }
     }
 
-    //only send a creation/leave/death with all summons leave
-    //if it's a multi-summon, wait til they all go away
-    let last_check = LAST_SPIRIT_EXIST_N_ALIVE.load(Ordering::SeqCst);
+    let mut last_check = LAST_SPIRIT_CHECK.lock().unwrap();
 
-    //last we saw they didn't exist, now they do and are alive
-    if !last_check && cur_spirit_count > 0 && cur_spirit_hp > 0 {
-        LAST_SPIRIT_EXIST_N_ALIVE.store(true, Ordering::SeqCst);
-
-        if let Some(sender) = GAMEPUSH_SEND.lock().unwrap().as_ref() {
-            sender
-                .send(tungstenite::Message::Text(
-                    serde_json::to_string(&OutgoingMessage::SpiritSummonEvent).unwrap(),
-                ))
-                .expect("Send failed");
+    last_check.retain(|id, hp| {
+        //newly desummoned. existed and had hp before, but doesn't now
+        if *hp > 0 && !cur_spirit_check.contains_key(&id) {
+            if let Some(sender) = GAMEPUSH_SEND.lock().unwrap().as_ref() {
+                sender
+                    .send(tungstenite::Message::Text(
+                        serde_json::to_string(&OutgoingMessage::SpiritLeaveEvent).unwrap(),
+                    ))
+                    .expect("Send failed");
+            }
+            return false;
         }
-    }
-    //last we saw they existed and were alive, now they don't exist
-    else if last_check && cur_spirit_count == 0 {
-        LAST_SPIRIT_EXIST_N_ALIVE.store(false, Ordering::SeqCst);
+        return true;
+    });
 
-        if let Some(sender) = GAMEPUSH_SEND.lock().unwrap().as_ref() {
-            sender
-                .send(tungstenite::Message::Text(
-                    serde_json::to_string(&OutgoingMessage::SpiritLeaveEvent).unwrap(),
-                ))
-                .expect("Send failed");
+    for (id, hp) in cur_spirit_check {
+        //newly summoned. didn't exist before, does now with hp
+        if !last_check.contains_key(&id) && hp > 0 {
+            if let Some(sender) = GAMEPUSH_SEND.lock().unwrap().as_ref() {
+                sender
+                    .send(tungstenite::Message::Text(
+                        serde_json::to_string(&OutgoingMessage::SpiritSummonEvent).unwrap(),
+                    ))
+                    .expect("Send failed");
+            }
+            last_check.insert(id, hp);
         }
-    }
-    //last we saw they existed and were alive, now they aren't alive
-    else if last_check && cur_spirit_hp == 0 {
-        LAST_SPIRIT_EXIST_N_ALIVE.store(false, Ordering::SeqCst);
-
-        if let Some(sender) = GAMEPUSH_SEND.lock().unwrap().as_ref() {
-            sender
-                .send(tungstenite::Message::Text(
-                    serde_json::to_string(&OutgoingMessage::SpiritDeathEvent).unwrap(),
-                ))
-                .expect("Send failed");
+        //newly dead. existed before, and still does now but with no hp
+        else if last_check.contains_key(&id) && last_check[&id] > 0 && hp == 0 {
+            if let Some(sender) = GAMEPUSH_SEND.lock().unwrap().as_ref() {
+                sender
+                    .send(tungstenite::Message::Text(
+                        serde_json::to_string(&OutgoingMessage::SpiritDeathEvent { id: id })
+                            .unwrap(),
+                    ))
+                    .expect("Send failed");
+            }
+            last_check.insert(id, hp);
         }
     }
 }
