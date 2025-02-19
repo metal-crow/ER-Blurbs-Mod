@@ -23,6 +23,8 @@ pub enum OutgoingMessage {
     },
     SpiritSummonEvent {
         id: i32,
+        player: CameraInfo,
+        spirit: Vec<Position>,
     },
     SpiritLeaveEvent {
         id: i32,

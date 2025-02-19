@@ -1,5 +1,5 @@
 use crate::{
-    player::ChrIns,
+    player::{get_camera, ChrIns},
     util::{get_game_base, get_world_chr_man, OutgoingMessage, Position, GAMEPUSH_SEND},
 };
 use lazy_static::lazy_static;
@@ -163,13 +163,21 @@ pub fn get_status() {
     for (id, hp) in cur_spirit_check {
         //newly summoned. didn't exist before, does now with hp
         if !last_check.contains_key(&id) && hp > 0 {
-            if let Some(sender) = GAMEPUSH_SEND.lock().unwrap().as_ref() {
-                sender
-                    .send(tungstenite::Message::Text(
-                        serde_json::to_string(&OutgoingMessage::SpiritSummonEvent { id: id })
-                            .unwrap(),
-                    ))
-                    .expect("Send failed");
+            if let Some(cam) = get_camera() {
+                if let Some(spirits) = get_position() {
+                    if let Some(sender) = GAMEPUSH_SEND.lock().unwrap().as_ref() {
+                        sender
+                            .send(tungstenite::Message::Text(
+                                serde_json::to_string(&OutgoingMessage::SpiritSummonEvent {
+                                    id: id,
+                                    player: cam,
+                                    spirit: spirits,
+                                })
+                                .unwrap(),
+                            ))
+                            .expect("Send failed");
+                    }
+                }
             }
             last_check.insert(id, hp);
         }
