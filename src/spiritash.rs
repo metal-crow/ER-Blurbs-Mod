@@ -150,7 +150,8 @@ pub fn get_status() {
             if let Some(sender) = GAMEPUSH_SEND.lock().unwrap().as_ref() {
                 sender
                     .send(tungstenite::Message::Text(
-                        serde_json::to_string(&OutgoingMessage::SpiritLeaveEvent).unwrap(),
+                        serde_json::to_string(&OutgoingMessage::SpiritLeaveEvent { id: *id })
+                            .unwrap(),
                     ))
                     .expect("Send failed");
             }
@@ -165,7 +166,8 @@ pub fn get_status() {
             if let Some(sender) = GAMEPUSH_SEND.lock().unwrap().as_ref() {
                 sender
                     .send(tungstenite::Message::Text(
-                        serde_json::to_string(&OutgoingMessage::SpiritSummonEvent).unwrap(),
+                        serde_json::to_string(&OutgoingMessage::SpiritSummonEvent { id: id })
+                            .unwrap(),
                     ))
                     .expect("Send failed");
             }
