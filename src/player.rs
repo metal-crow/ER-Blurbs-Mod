@@ -185,9 +185,13 @@ pub struct ChrCtrl<'a> {
     unk20: usize,
     ragdoll_ins: usize,
     chr_collision: usize,
-    unk38: [u8; 240],
+    unk38: [u8; 0xf0],
     pub chr_ragdoll_state: u8,
+    unk: [u8; 0x1ab],
+    pub scaleSize: [f32; 3],
 }
+const _: () = assert!(std::mem::offset_of!(ChrCtrl, chr_ragdoll_state) == 0x128);
+const _: () = assert!(std::mem::offset_of!(ChrCtrl, scaleSize) == 0x2d4);
 
 #[repr(C)]
 pub struct WorldChrMan<'a> {

@@ -142,6 +142,7 @@ pub enum IncomingMessage {
     IncreaseDifficulty,
     DecreaseDifficulty,
     GetPlayerSpiritPosition,
+    SetSpiritScale { size: f32 },
 }
 
 lazy_static! {
@@ -159,6 +160,7 @@ fn handle_client_task() {
                 IncomingMessage::IncreaseDifficulty => difficulty::increase_difficulty(),
                 IncomingMessage::DecreaseDifficulty => difficulty::decrease_difficulty(),
                 IncomingMessage::GetPlayerSpiritPosition => util::report_position(),
+                IncomingMessage::SetSpiritScale { size } => spiritash::set_size(size),
             }
         }
     }
