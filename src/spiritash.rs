@@ -237,7 +237,7 @@ pub fn set_size(size: f32) {
         for i in 1..chr_count {
             let chrins_ptr = *((chr_set + (i * 0x10) as u64) as *mut u64);
             if chrins_ptr != 0 {
-                let chrins = chrins_ptr as *const ChrIns;
+                let chrins = chrins_ptr as *mut ChrIns;
                 if (*chrins).vftable == 0 {
                     continue;
                 }
@@ -247,10 +247,9 @@ pub fn set_size(size: f32) {
                     continue;
                 }
 
-                let mut scale = (*chrins).chr_ctrl.scaleSize;
-                scale[0] = size;
-                scale[1] = size;
-                scale[2] = size;
+                (*chrins).chr_ctrl.scaleSize[0] = size;
+                (*chrins).chr_ctrl.scaleSize[1] = size;
+                (*chrins).chr_ctrl.scaleSize[2] = size;
             }
         }
     }

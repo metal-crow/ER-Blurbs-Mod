@@ -88,6 +88,17 @@ client.on('open', () => {
                 })
             );
         }
+        if (key.name === 'f') {
+            rl.question('Enter size: ', (aInput) => {
+                console.log('Key pressed. Sending SetSpiritScale message.');
+                client.send(
+                    JSON.stringify({
+                        type: "SetSpiritScale",
+                        size: parseInt(aInput),
+                    })
+                );
+            });
+        }
     });
 });
 
