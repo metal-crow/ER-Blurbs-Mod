@@ -66,8 +66,8 @@ pub fn get_position() -> Option<Vec<Position>> {
                 positions.push(Position {
                     id: handle,
                     x: coords.0,
-                    z: coords.1,
-                    y: coords.2,
+                    y: coords.1,
+                    z: coords.2,
                 });
             }
         }

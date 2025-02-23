@@ -322,7 +322,7 @@ fn get_position() -> Option<Position> {
     return Some(Position {
         id: 0,
         x: map_coordinates.0,
-        z: map_coordinates.1,
-        y: map_coordinates.2,
+        y: map_coordinates.1,
+        z: map_coordinates.2,
     });
 }
