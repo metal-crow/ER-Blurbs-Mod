@@ -191,7 +191,7 @@ pub struct ChrCtrl<'a> {
     pub scale_size: [f32; 3],
 }
 const _: () = assert!(std::mem::offset_of!(ChrCtrl, chr_ragdoll_state) == 0x128);
-const _: () = assert!(std::mem::offset_of!(ChrCtrl, scaleSize) == 0x2d4);
+const _: () = assert!(std::mem::offset_of!(ChrCtrl, scale_size) == 0x2d4);
 
 #[repr(C)]
 pub struct WorldChrMan<'a> {
