@@ -247,9 +247,9 @@ pub fn set_size(size: f32) {
                     continue;
                 }
 
-                (*chrins).chr_ctrl.scaleSize[0] = size;
-                (*chrins).chr_ctrl.scaleSize[1] = size;
-                (*chrins).chr_ctrl.scaleSize[2] = size;
+                (*chrins).chr_ctrl.scale_size[0] = size;
+                (*chrins).chr_ctrl.scale_size[1] = size;
+                (*chrins).chr_ctrl.scale_size[2] = size;
             }
         }
     }
