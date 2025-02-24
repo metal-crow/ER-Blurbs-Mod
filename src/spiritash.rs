@@ -210,6 +210,9 @@ pub fn set_size(size: f32) {
         }
     }
 
+    let apply_speffect_fn =
+        unsafe { std::mem::transmute::<usize, extern "C" fn(u64, u32, u8)>(base + 0x3e8cf0) };
+
     let world_chr_man = {
         let world_chr_man = get_world_chr_man();
         if world_chr_man.is_none() {
@@ -246,6 +249,9 @@ pub fn set_size(size: f32) {
                 if (*chrins).team_type != 0x2f {
                     continue;
                 }
+
+                //apply the host mirror speffect to the spirit, to remove the blue glow
+                apply_speffect_fn(chrins as u64, 360800, 1);
 
                 (*chrins).chr_ctrl.scale_size[0] = size;
                 (*chrins).chr_ctrl.scale_size[1] = size;
