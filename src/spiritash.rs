@@ -1,5 +1,6 @@
 use crate::{
-    player::{get_camera, ChrIns},
+    player::{get_camera, ChrIns, WorldChrMan},
+    reflection::get_instance,
     util::{get_game_base, get_world_chr_man, OutgoingMessage, Position, GAMEPUSH_SEND},
 };
 use lazy_static::lazy_static;
@@ -144,9 +145,13 @@ pub fn get_status() {
 
     let mut last_check = LAST_SPIRIT_CHECK.lock().unwrap();
 
-    last_check.retain(|id, hp| {
-        //newly desummoned. existed and had hp before, but doesn't now
-        if *hp > 0 && !cur_spirit_check.contains_key(&id) {
+    //if the player is dead, send a leave event and clear the last_check
+    let instance = get_instance::<WorldChrMan>()
+        .expect("Could not find WorldChrMan static")
+        .unwrap();
+    let hp = instance.main_player.module_container.data.hp;
+    if hp == 0 {
+        last_check.retain(|id, hp| {
             if let Some(sender) = GAMEPUSH_SEND.lock().unwrap().as_ref() {
                 sender
                     .send(tungstenite::Message::Text(
@@ -156,42 +161,57 @@ pub fn get_status() {
                     .expect("Send failed");
             }
             return false;
-        }
-        return true;
-    });
-
-    for (id, hp) in cur_spirit_check {
-        //newly summoned. didn't exist before, does now with hp
-        if !last_check.contains_key(&id) && hp > 0 {
-            if let Some(cam) = get_camera() {
-                if let Some(spirits) = get_position() {
-                    if let Some(sender) = GAMEPUSH_SEND.lock().unwrap().as_ref() {
-                        sender
-                            .send(tungstenite::Message::Text(
-                                serde_json::to_string(&OutgoingMessage::SpiritSummonEvent {
-                                    id: id,
-                                    player: cam,
-                                    spirit: spirits,
-                                })
+        });
+    } else {
+        last_check.retain(|id, hp| {
+            //newly desummoned. existed and had hp before, but doesn't now
+            if *hp > 0 && !cur_spirit_check.contains_key(&id) {
+                if let Some(sender) = GAMEPUSH_SEND.lock().unwrap().as_ref() {
+                    sender
+                        .send(tungstenite::Message::Text(
+                            serde_json::to_string(&OutgoingMessage::SpiritLeaveEvent { id: *id })
                                 .unwrap(),
-                            ))
-                            .expect("Send failed");
+                        ))
+                        .expect("Send failed");
+                }
+                return false;
+            }
+            return true;
+        });
+
+        for (id, hp) in cur_spirit_check {
+            //newly summoned. didn't exist before, does now with hp
+            if !last_check.contains_key(&id) && hp > 0 {
+                if let Some(cam) = get_camera() {
+                    if let Some(spirits) = get_position() {
+                        if let Some(sender) = GAMEPUSH_SEND.lock().unwrap().as_ref() {
+                            sender
+                                .send(tungstenite::Message::Text(
+                                    serde_json::to_string(&OutgoingMessage::SpiritSummonEvent {
+                                        id: id,
+                                        player: cam,
+                                        spirit: spirits,
+                                    })
+                                    .unwrap(),
+                                ))
+                                .expect("Send failed");
+                        }
                     }
                 }
+                last_check.insert(id, hp);
             }
-            last_check.insert(id, hp);
-        }
-        //newly dead. existed before, and still does now but with no hp
-        else if last_check.contains_key(&id) && last_check[&id] > 0 && hp == 0 {
-            if let Some(sender) = GAMEPUSH_SEND.lock().unwrap().as_ref() {
-                sender
-                    .send(tungstenite::Message::Text(
-                        serde_json::to_string(&OutgoingMessage::SpiritDeathEvent { id: id })
-                            .unwrap(),
-                    ))
-                    .expect("Send failed");
+            //newly dead. existed before, and still does now but with no hp
+            else if last_check.contains_key(&id) && last_check[&id] > 0 && hp == 0 {
+                if let Some(sender) = GAMEPUSH_SEND.lock().unwrap().as_ref() {
+                    sender
+                        .send(tungstenite::Message::Text(
+                            serde_json::to_string(&OutgoingMessage::SpiritDeathEvent { id: id })
+                                .unwrap(),
+                        ))
+                        .expect("Send failed");
+                }
+                last_check.insert(id, hp);
             }
-            last_check.insert(id, hp);
         }
     }
 }
