@@ -107,7 +107,7 @@ pub fn get_status() {
         return;
     }
 
-    let mut cur_spirit_check: HashMap<i32, u32> = HashMap::new();
+    let mut cur_spirit_check: HashMap<i32, (*mut ChrIns, u32)> = HashMap::new();
 
     unsafe {
         let buddy_chr_set = (world_chr_man + 0x10f90) as u64;
@@ -124,7 +124,7 @@ pub fn get_status() {
         for i in 1..chr_count {
             let chrins_ptr = *((chr_set + (i * 0x10) as u64) as *mut u64);
             if chrins_ptr != 0 {
-                let chrins = chrins_ptr as *const ChrIns;
+                let chrins = chrins_ptr as *mut ChrIns;
                 if (*chrins).vftable == 0 {
                     continue;
                 }
@@ -137,7 +137,7 @@ pub fn get_status() {
                 //buddy system seems to not actually set it's count, only sets capacity so we have to manually count
                 cur_spirit_check.insert(
                     (*chrins).field_ins_handle.instance_id,
-                    (*chrins).module_container.data.hp,
+                    (chrins, (*chrins).module_container.data.hp),
                 );
             }
         }
@@ -151,7 +151,7 @@ pub fn get_status() {
         .unwrap();
     let hp = instance.main_player.module_container.data.hp;
     if hp == 0 {
-        last_check.retain(|id, hp| {
+        last_check.retain(|id, _| {
             if let Some(sender) = GAMEPUSH_SEND.lock().unwrap().as_ref() {
                 sender
                     .send(tungstenite::Message::Text(
@@ -179,7 +179,10 @@ pub fn get_status() {
             return true;
         });
 
-        for (id, hp) in cur_spirit_check {
+        let apply_speffect_fn =
+            unsafe { std::mem::transmute::<usize, extern "C" fn(u64, u32, u8)>(base + 0x3e8cf0) };
+
+        for (id, (chrins, hp)) in cur_spirit_check {
             //newly summoned. didn't exist before, does now with hp
             if !last_check.contains_key(&id) && hp > 0 {
                 if let Some(cam) = get_camera() {
@@ -198,6 +201,16 @@ pub fn get_status() {
                         }
                     }
                 }
+
+                //hacks!
+                unsafe {
+                    //apply the host mirror speffect to the spirit, to remove the blue glow
+                    apply_speffect_fn(chrins as u64, 360800, 1);
+                    //we need to save off the original hp base, stick it in here
+                    (*chrins).module_container.data.recoverable_hp_left1 =
+                        (*chrins).module_container.data.hp_base as f32;
+                }
+
                 last_check.insert(id, hp);
             }
             //newly dead. existed before, and still does now but with no hp
@@ -216,7 +229,7 @@ pub fn get_status() {
     }
 }
 
-pub fn set_size(size: f32) {
+pub fn set_size(size: f32, power: f32) {
     let base = get_game_base().expect("Could not acquire game base");
     unsafe {
         //check if we're loading
@@ -229,9 +242,6 @@ pub fn set_size(size: f32) {
             return;
         }
     }
-
-    let apply_speffect_fn =
-        unsafe { std::mem::transmute::<usize, extern "C" fn(u64, u32, u8)>(base + 0x3e8cf0) };
 
     let world_chr_man = {
         let world_chr_man = get_world_chr_man();
@@ -270,12 +280,13 @@ pub fn set_size(size: f32) {
                     continue;
                 }
 
-                //apply the host mirror speffect to the spirit, to remove the blue glow
-                apply_speffect_fn(chrins as u64, 360800, 1);
-
                 (*chrins).chr_ctrl.scale_size[0] = size;
                 (*chrins).chr_ctrl.scale_size[1] = size;
                 (*chrins).chr_ctrl.scale_size[2] = size;
+
+                (*chrins).module_container.data.hp_base =
+                    ((*chrins).module_container.data.recoverable_hp_left1 * power) as u32;
+                (*chrins).module_container.behavior.animation_speed = power;
             }
         }
     }

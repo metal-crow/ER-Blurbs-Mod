@@ -101,12 +101,12 @@ pub struct PlayerIns<'a> {
 
 #[repr(C)]
 pub struct ChrInsModuleContainer<'a> {
-    pub data: &'a ChrDataModule,
+    pub data: &'a mut ChrDataModule,
     pub action_flag: usize,
     pub behavior_script: usize,
     pub time_act: usize,
     pub resist: usize,
-    pub behavior: usize,
+    pub behavior: &'a mut CSChrBehaviorModule,
     pub behavior_sync: usize,
     pub ai: usize,
     pub super_armor: usize,
@@ -143,12 +143,26 @@ pub struct ChrInsModuleContainer<'a> {
 }
 
 #[repr(C)]
+pub struct CSChrBehaviorModule {
+    pub vftable: usize,
+    pub unk10: [u8; 0x17c0],
+    pub animation_speed: f32,
+}
+const _: () = assert!(std::mem::offset_of!(CSChrBehaviorModule, animation_speed) == 0x17c8);
+
+#[repr(C)]
 pub struct ChrDataModule {
     pub vftable: usize,
     pub unk10: [u8; 0x130],
     pub hp: u32,
+    pub hp_max: u32,
+    pub hp_max_uncapped: u32,
+    pub hp_base: u32,
+    pub unk: [u8; 24],
+    pub recoverable_hp_left1: f32,
 }
 const _: () = assert!(std::mem::offset_of!(ChrDataModule, hp) == 0x138);
+const _: () = assert!(std::mem::offset_of!(ChrDataModule, recoverable_hp_left1) == 0x160);
 
 #[repr(C)]
 pub struct ChrRideModule {
